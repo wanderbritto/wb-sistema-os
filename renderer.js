@@ -6,50 +6,8 @@ const { createClient } = require('@supabase/supabase-js');
 // ========== CONFIGURAÇÕES ==========
 const SUPABASE_URL = 'https://cmdbhxnlhwwfssodtxpl.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_ejR2-145S05asosBAk5M0g_8Kvcz9Z4';
-const GROQ_API_KEY = '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';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// ========== HISTÓRICO DO CHAT DA CONSULTORIA ==========
-let historicoChat = [];
-const CHAT_HISTORICO_KEY = 'wb_consultoria_chat';
-
-function carregarHistoricoChat() {
-    const salvo = localStorage.getItem(CHAT_HISTORICO_KEY);
-    if (salvo) historicoChat = JSON.parse(salvo);
-}
-
-function salvarHistoricoChat() {
-    localStorage.setItem(CHAT_HISTORICO_KEY, JSON.stringify(historicoChat));
-}
-
-function limparHistoricoChat() {
-    historicoChat = [];
-    salvarHistoricoChat();
-}
-
-function exportarHistoricoChat() {
-    let texto = "WB Airsoft - Consultoria Técnica\n";
-    texto += "=".repeat(50) + "\n";
-    texto += `Exportado em: ${new Date().toLocaleString('pt-BR')}\n`;
-    texto += "=".repeat(50) + "\n\n";
-    
-    historicoChat.forEach(msg => {
-        texto += `${msg.role === 'user' ? '👤 Você' : '🤖 Assistente'}: ${msg.content}\n\n`;
-        texto += "-".repeat(40) + "\n\n";
-    });
-    
-    const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.href = url;
-    link.download = `chat_consultoria_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    alert('✅ Histórico exportado com sucesso!');
-}
 
 // ========== AUTENTICAÇÃO ==========
 let usuarioAtual = null;
@@ -166,61 +124,6 @@ function criarOSdoAgendamento(agendamento) {
         const obsTextarea = document.getElementById('descricao');
         if (obsTextarea) obsTextarea.value = `Agendamento: ${agendamento.data} às ${agendamento.horario}\nObservações: ${agendamento.obs || 'Nenhuma'}`;
     }, 100);
-}
-
-// ========== FUNÇÃO DE FORMATAÇÃO DE RESPOSTA IA ==========
-function formatarRespostaIA(texto) {
-    if (!texto) return '';
-    return texto
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/<br>🔧/g, '<br><br><strong>🔧</strong>')
-        .replace(/<br>🔍/g, '<br><br><strong>🔍</strong>')
-        .replace(/<br>🛠️/g, '<br><br><strong>🛠️</strong>')
-        .replace(/<br>⚠️/g, '<br><br><strong>⚠️</strong>')
-        .replace(/^🔧/g, '<strong>🔧</strong>')
-        .replace(/^🔍/g, '<strong>🔍</strong>')
-        .replace(/^🛠️/g, '<strong>🛠️</strong>')
-        .replace(/^⚠️/g, '<strong>⚠️</strong>')
-        .replace(/<br>(\d+)\./g, '<br><strong>$1.</strong>')
-        .replace(/(<br>){3,}/g, '<br><br>');
-}
-
-// ========== FUNÇÃO DE CONSULTORIA IA COM GROQ ==========
-async function consultarIA(pergunta) {
-    console.log('🔍 Consultando IA com pergunta:', pergunta);
-    if (!GROQ_API_KEY) return fallbackLocal(pergunta);
-    
-    try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${GROQ_API_KEY}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'system', content: `Você é técnico especialista em Airsoft. Dê respostas TÉCNICAS e ESPECÍFICAS.` }, { role: 'user', content: pergunta }],
-                temperature: 0.6,
-                max_tokens: 800
-            })
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        let resposta = data.choices[0].message.content;
-        return resposta.length > 1000 ? resposta.substring(0, 1000) + '...' : resposta;
-    } catch (error) {
-        console.error('❌ Erro ao consultar Groq:', error);
-        return fallbackLocal(pergunta);
-    }
-}
-
-function fallbackLocal(pergunta) {
-    const perguntaLower = pergunta.toLowerCase();
-    if (perguntaLower.includes('pistola') && perguntaLower.includes('dispara')) 
-        return "🔫 **Pistola não dispara**: 1) Verifique a bateria 2) Teste o motor 3) Confira os fusíveis.";
-    if (perguntaLower.includes('gás') || perguntaLower.includes('gbb')) 
-        return "💨 **Vazamento de gás**: Os O-rings ressecam com o tempo. Lubrifique com silicone específico.";
-    if (perguntaLower.includes('motor') && perguntaLower.includes('quente')) 
-        return "⚡ **Motor superaquecendo**: Verifique engrenagens travadas ou lubrificação.";
-    return "🔧 Não entendi. Descreva melhor o problema e o equipamento.";
 }
 
 // ========== FUNÇÕES DE PDF ==========
@@ -438,7 +341,7 @@ async function renderAgendamentos() {
         btn.addEventListener('click', async () => {
             const id = parseInt(btn.dataset.id);
             const agendamento = agendamentos.find(a => a.id === id);
-            if (agendamento) { criarOSdoAgendamento(agendamento); await marcarAgendamentoComoLidoSupabase(id); await renderAgendamentos(); }
+            if (agendamento) { criarOSdoAgendamento(agendamento); await marcarAgendamentoComoLidoSupabase(id); }
         });
     });
     document.querySelectorAll('.btn-excluir-agendamento-lista').forEach(btn => {
@@ -582,7 +485,7 @@ async function renderDashboard() {
     document.getElementById('atalho-resumo')?.addEventListener('click', () => document.getElementById('btn-resumo')?.click());
     
     document.querySelectorAll('.btn-criar-os-agendamento').forEach(btn => {
-        btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); await renderDashboard(); } });
+        btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); } });
     });
     document.querySelectorAll('.btn-ignorar-agendamento').forEach(btn => {
         btn.addEventListener('click', async () => { if (confirm('Marcar como ignorado?')) { await excluirAgendamentoSupabase(parseInt(btn.dataset.id)); await renderDashboard(); } });
@@ -1044,7 +947,7 @@ function configurarBotoes() {
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             item.classList.add('active');
             const page = item.dataset.page;
-            document.getElementById('page-title').textContent = page === 'dashboard' ? 'Dashboard' : page === 'clientes' ? 'Clientes' : page === 'nova-os' ? 'Nova OS' : page === 'listar-os' ? 'Listar OS' : page === 'resumo' ? 'Resumo' : page === 'financeiro' ? 'Financeiro' : page === 'relatorios' ? 'Relatórios' : page === 'agendamentos' ? 'Agendamentos' : page === 'backup' ? 'Backup' : 'Consultoria Técnica';
+            document.getElementById('page-title').textContent = page === 'dashboard' ? 'Dashboard' : page === 'clientes' ? 'Clientes' : page === 'nova-os' ? 'Nova OS' : page === 'listar-os' ? 'Listar OS' : page === 'resumo' ? 'Resumo' : page === 'financeiro' ? 'Financeiro' : page === 'relatorios' ? 'Relatórios' : page === 'agendamentos' ? 'Agendamentos' : 'Backup';
             if (page === 'dashboard') renderDashboard();
             else if (page === 'clientes') renderClientes();
             else if (page === 'nova-os') renderNovaOS();
@@ -1054,7 +957,6 @@ function configurarBotoes() {
             else if (page === 'relatorios') renderRelatorios();
             else if (page === 'agendamentos') renderAgendamentos();
             else if (page === 'backup') renderBackup();
-            else if (page === 'consultoria') renderConsultoria();
         });
     });
     document.getElementById('btn-tema')?.addEventListener('click', alternarTema);
@@ -1153,72 +1055,6 @@ function abrirModalLogo() {
         }
     });
     document.getElementById('btn-cancelar-logo')?.addEventListener('click', () => modal.remove());
-}
-
-// ========== CONSULTORIA TÉCNICA ==========
-function renderConsultoria() {
-    carregarHistoricoChat();
-    const html = `
-        <div class="consultoria-container">
-            <div class="consultoria-header"><h2>🔧 Central de Consultoria Técnica</h2><p>Diagnóstico e soluções para equipamentos Airsoft</p></div>
-            <div class="consulta-card"><h3>🔍 Consulta Rápida</h3><div class="busca-container"><input type="text" id="busca-problema" placeholder="Ex: pistola não dispara..."><button id="btn-buscar" class="btn-buscar">🔍 Buscar</button></div><div id="resultado-busca" class="resultado-busca"></div></div>
-            <div class="ia-card"><div class="ia-header-actions"><h3>🤖 Assistente IA (Groq)</h3><div class="chat-actions"><button id="btn-limpar-chat" class="btn-limpar-chat">🗑️ Limpar</button><button id="btn-exportar-chat" class="btn-exportar-chat">📄 Exportar</button></div></div>
-            <div class="ia-chat"><div class="ia-mensagens" id="ia-mensagens">${renderizarMensagensSalvas()}</div><div class="ia-input-area"><textarea id="ia-pergunta" rows="2" placeholder="Descreva o problema..."></textarea><button id="btn-enviar-ia" class="btn-enviar-ia">📨 Perguntar</button></div></div></div>
-            <div class="catalogo-card"><h3>📚 Problemas Comuns</h3><div class="catalogo-grid"><div class="categoria-item" data-categoria="pistola"><span class="categoria-icon">🔫</span><span>Pistolas</span></div><div class="categoria-item" data-categoria="fuzil"><span class="categoria-icon">🔫</span><span>Fuzis</span></div><div class="categoria-item" data-categoria="gbb"><span class="categoria-icon">💨</span><span>GBB</span></div></div><div id="catalogo-resultados"></div></div>
-        </div>
-    `;
-    document.getElementById('content-area').innerHTML = html;
-    document.getElementById('page-title').textContent = 'Consultoria Técnica';
-    
-    document.getElementById('btn-buscar')?.addEventListener('click', () => {
-        const busca = document.getElementById('busca-problema').value;
-        if (!busca) return;
-        const resultados = buscarConhecimento(busca);
-        document.getElementById('resultado-busca').innerHTML = resultados.length ? resultados.map(r => `<div class="problema-card"><h4>🔧 ${r.problema}</h4><div><strong>Sintomas:</strong><ul>${r.sintomas.map(s => `<li>${s}</li>`).join('')}</ul></div><div><strong>Causas:</strong><ul>${r.causas.map(c => `<li>${c}</li>`).join('')}</ul></div><div><strong>Soluções:</strong><ul>${r.solucoes.map(s => `<li>${s}</li>`).join('')}</ul></div></div>`).join('') : '<div class="empty-message">Nada encontrado</div>';
-    });
-    
-    document.querySelectorAll('.categoria-item').forEach(cat => {
-        cat.addEventListener('click', () => {
-            const categoria = cat.dataset.categoria;
-            const resultados = conhecimentoTecnico.filter(r => r.tipo === categoria);
-            document.getElementById('catalogo-resultados').innerHTML = resultados.map(r => `<div class="problema-card pequeno"><h4>${r.problema}</h4><button class="btn-ver-detalhes" data-id="${r.id}">Ver detalhes</button></div>`).join('');
-            document.querySelectorAll('.btn-ver-detalhes').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const problema = conhecimentoTecnico.find(p => p.id === parseInt(btn.dataset.id));
-                    if (problema) document.getElementById('busca-problema').value = problema.problema;
-                });
-            });
-        });
-    });
-    
-    document.getElementById('btn-enviar-ia')?.addEventListener('click', async () => {
-        const pergunta = document.getElementById('ia-pergunta').value;
-        if (!pergunta) return;
-        const mensagensDiv = document.getElementById('ia-mensagens');
-        historicoChat.push({ role: 'user', content: pergunta });
-        salvarHistoricoChat();
-        mensagensDiv.innerHTML += `<div class="ia-mensagem user"><strong>Você:</strong> ${pergunta.replace(/\n/g, '<br>')}</div>`;
-        mensagensDiv.innerHTML += `<div class="ia-mensagem bot typing" id="ia-typing"><strong>Assistente:</strong> <em>Consultando...</em></div>`;
-        mensagensDiv.scrollTop = mensagensDiv.scrollHeight;
-        document.getElementById('ia-pergunta').value = '';
-        
-        const resposta = await consultarIA(pergunta);
-        historicoChat.push({ role: 'assistant', content: resposta });
-        salvarHistoricoChat();
-        
-        document.getElementById('ia-typing')?.remove();
-        mensagensDiv.innerHTML += `<div class="ia-mensagem bot"><strong>Assistente:</strong> ${formatarRespostaIA(resposta)}</div>`;
-        mensagensDiv.scrollTop = mensagensDiv.scrollHeight;
-    });
-    
-    document.getElementById('ia-pergunta')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('btn-enviar-ia').click(); } });
-    document.getElementById('btn-limpar-chat')?.addEventListener('click', () => { if (confirm('Limpar histórico?')) { limparHistoricoChat(); renderConsultoria(); } });
-    document.getElementById('btn-exportar-chat')?.addEventListener('click', () => { if (historicoChat.length) exportarHistoricoChat(); else alert('Nenhuma conversa'); });
-}
-
-function renderizarMensagensSalvas() {
-    if (!historicoChat.length) return '<div class="ia-mensagem bot">Olá! Pergunte sobre problemas no seu equipamento Airsoft!</div>';
-    return historicoChat.map(msg => `<div class="ia-mensagem ${msg.role === 'user' ? 'user' : 'bot'}"><strong>${msg.role === 'user' ? 'Você' : 'Assistente'}:</strong> ${msg.role === 'user' ? msg.content.replace(/\n/g, '<br>') : formatarRespostaIA(msg.content)}</div>`).join('');
 }
 
 // ========== INICIAR ==========
