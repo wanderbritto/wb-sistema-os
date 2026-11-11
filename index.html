@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wander Custom App - Sistema de Ordem de Serviço</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- TELA DE LOGIN -->
+    <div id="login-container" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h2>🔫 WB Airsoft OS</h2>
+                <p>Sistema de Ordem de Serviço</p>
+            </div>
+            
+            <div id="login-form">
+                <div class="form-group">
+                    <label>👤 Usuário</label>
+                    <input type="text" id="login-usuario" placeholder="Digite seu usuário">
+                </div>
+                <div class="form-group">
+                    <label>🔒 Senha</label>
+                    <input type="password" id="login-senha" placeholder="Digite sua senha">
+                </div>
+                <button id="btn-login" class="btn-login">🚀 Entrar</button>
+                <div class="login-links">
+                    <a href="#" id="btn-cadastrar">Criar conta</a>
+                    <a href="#" id="btn-esqueci">Esqueci minha senha</a>
+                </div>
+            </div>
+            
+            <div id="cadastro-form" style="display: none;">
+                <div class="form-group">
+                    <label>👤 Nome</label>
+                    <input type="text" id="cadastro-nome" placeholder="Seu nome">
+                </div>
+                <div class="form-group">
+                    <label>👤 Usuário</label>
+                    <input type="text" id="cadastro-usuario" placeholder="Escolha um usuário">
+                </div>
+                <div class="form-group">
+                    <label>🔒 Senha</label>
+                    <input type="password" id="cadastro-senha" placeholder="Escolha uma senha">
+                </div>
+                <div class="form-group">
+                    <label>🔒 Confirmar Senha</label>
+                    <input type="password" id="cadastro-confirmar" placeholder="Confirme sua senha">
+                </div>
+                <button id="btn-registrar" class="btn-login">📝 Registrar</button>
+                <button id="btn-voltar-login" class="btn-secondary" style="margin-top: 10px;">← Voltar</button>
+            </div>
+            
+            <div id="recuperar-form" style="display: none;">
+                <div class="form-group">
+                    <label>👤 Usuário</label>
+                    <input type="text" id="recuperar-usuario" placeholder="Digite seu usuário">
+                </div>
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="recuperar-email" placeholder="Digite seu email">
+                </div>
+                <button id="btn-recuperar" class="btn-login">📧 Enviar</button>
+                <button id="btn-voltar-recuperar" class="btn-secondary" style="margin-top: 10px;">← Voltar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- APP PRINCIPAL -->
+    <div id="app-container" class="app-container">
+        <!-- NOVA SIDEBAR MODERNA -->
+        <aside class="sidebar">
+            <!-- Logo e Marca -->
+            <div class="sidebar-brand">
+                <div class="logo-container" id="sidebar-header">
+                    <div class="logo-placeholder" id="logo-placeholder">
+                        <span id="logo-text">🔫</span>
+                        <div class="logo-edit-icon">✏️</div>
+                    </div>
+                    <div class="brand-text">
+                        <h2>WB OS</h2>
+                        <p>Airsoft Management</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Perfil do Usuário -->
+            <div class="sidebar-user">
+                <div class="user-avatar">👤</div>
+                <div class="user-info">
+                    <span id="user-nome">Usuário</span>
+                    <button id="btn-logout" class="btn-logout">🚪 Sair</button>
+                </div>
+            </div>
+            
+            <!-- Navegação Principal -->
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-item" data-page="dashboard">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Dashboard</span>
+                    </div>
+                    <div class="nav-item" data-page="clientes">
+                        <span class="nav-icon">👥</span>
+                        <span class="nav-text">Clientes</span>
+                    </div>
+                    <div class="nav-item" data-page="nova-os">
+                        <span class="nav-icon">➕</span>
+                        <span class="nav-text">Nova OS</span>
+                    </div>
+                    <div class="nav-item" data-page="listar-os">
+                        <span class="nav-icon">📋</span>
+                        <span class="nav-text">Listar OS</span>
+                    </div>
+                    <div class="nav-item" data-page="consultoria">
+                        <span class="nav-icon">🔧</span>
+                        <span class="nav-text">Consultoria</span>
+                    </div>
+                </div>
+                
+                <div class="nav-divider"></div>
+                
+                <div class="nav-section">
+                    <div class="nav-item" data-page="resumo">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Resumo</span>
+                    </div>
+                    <div class="nav-item" data-page="financeiro">
+                        <span class="nav-icon">💰</span>
+                        <span class="nav-text">Financeiro</span>
+                    </div>
+                    <div class="nav-item" data-page="relatorios">
+                        <span class="nav-icon">📈</span>
+                        <span class="nav-text">Relatórios</span>
+                    </div>
+                    <div class="nav-item" data-page="agendamentos">
+                        <span class="nav-icon">📅</span>
+                        <span class="nav-text">Agendamentos</span>
+                    </div>
+                    <div class="nav-item" data-page="backup">
+                        <span class="nav-icon">💾</span>
+                        <span class="nav-text">Backup</span>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Rodapé da Sidebar -->
+            <div class="sidebar-footer">
+                <button id="btn-tema" class="theme-btn">🌙 Tema Escuro</button>
+                <div class="sidebar-info">
+                    <small>Versão 2.0.0</small>
+                    <small>⚡ Sistema Local</small>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            <div class="content-header">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="stats-badge" id="contador-os">0 OS</div>
+            </div>
+            <div id="content-area" class="content-area">
+                <!-- Conteúdo será inserido aqui -->
+            </div>
+        </main>
+    </div>
+    
+    <script src="renderer.js"></script>
+</body>
+</html>
