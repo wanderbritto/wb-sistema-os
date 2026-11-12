@@ -1393,3 +1393,349 @@ function rel2SeedDemo() {
     rel2Periodo = 'tudo';
     renderRelatorios();
 }
+// ========== LISTAR OS v2 (PROFISSIONAL + EDIÇÃO + WHATSAPP) ==========
+let lo2Filtro = 'todas';
+let lo2Busca = '';
+
+function renderListarOS() {
+    document.getElementById('page-title').textContent = 'Listar OS';
+    lo2Filtro = 'todas';
+    lo2Busca = '';
+    const st = { pendente: ['Pendente', '#f59e0b', '⏳'], aguardando_aprovacao: ['Aguardando Aprovação', '#8b5cf6', '📝'], aguardando_pagamento: ['Aguardando Pagamento', '#06b6d4', '💳'], andamento: ['Em Andamento', '#3b82f6', '🔧'], concluido: ['Concluído', '#22c55e', '✅'], cancelado: ['Cancelado', '#ef4444', '❌'] };
+    const brl = v => 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+    const ini2 = n => (n || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    document.getElementById('content-area').innerHTML = `
+        <div class="db2-root">
+            <div class="db2-header">
+                <div><h2>📋 Ordens de Serviço</h2><p>${ordens.length} OS no sistema · ${brl(ordens.reduce((a, o) => a + (o.valor || 0), 0))} em valores</p></div>
+                <div class="db2-header-actions"><button class="db2-btn primary" id="lo-ir-nova">➕ Nova OS</button></div>
+            </div>
+            <div class="db3-tabs">
+                <button class="db3-tab active" data-filtro="todas" style="--st:#4f8cff;"><span>📋 Todas</span><strong>${ordens.length}</strong></button>
+                ${Object.keys(st).map(s => `<button class="db3-tab" data-filtro="${s}" style="--st:${st[s][1]};"><span>${st[s][2]} ${st[s][0]}</span><strong>${ordens.filter(o => o.status === s).length}</strong></button>`).join('')}
+            </div>
+            <div class="db2-card">
+                <div class="db2-card-head"><h3>🔎 Todas as OS</h3><input type="text" id="lo2-busca" class="db3-busca" placeholder="🔍 Buscar cliente, equipamento ou nº..."></div>
+                <div id="lo2-lista"></div>
+            </div>
+        </div>`;
+    const pintar = () => {
+        const termo = lo2Busca.toLowerCase().replace('#', '');
+        const filtradas = ordens.filter(o => (lo2Filtro === 'todas' || o.status === lo2Filtro) && (!termo || String(o.id).includes(termo) || (clientes.find(c => c.id === o.clienteId)?.nome || '').toLowerCase().includes(termo) || (o.equipamento || '').toLowerCase().includes(termo))).sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0) || (b.id || 0) - (a.id || 0));
+        document.getElementById('lo2-lista').innerHTML = filtradas.length ? filtradas.map(os => {
+            const c = clientes.find(c => c.id === os.clienteId);
+            const s = st[os.status] || st.pendente;
+            return `<div class="db2-os-row"><div class="db2-avatar" style="background:${s[1]}22;color:${s[1]};">${ini2(c?.nome)}</div><div class="db2-os-info"><strong>#${String(os.id).slice(-6)} · ${c?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Sem equipamento'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}${os.descricao ? ' · ' + os.descricao.slice(0, 45) : ''}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${s[1]}18;color:${s[1]};">${s[2]} ${s[0]}</span><strong class="fn2-valor">${brl(os.valor)}</strong></div><div class="db3-row-actions"><button class="db3-ico" title="Editar OS" onclick="osEditar(${os.id})">✏️</button><button class="db3-ico" title="Atualizar cliente no WhatsApp" onclick="osMensagemStatus(${os.id})">💬</button><button class="db3-ico" title="Salvar PDF" onclick="gerarPDF_OS(${os.id}, false)">📄</button><button class="db3-ico" title="Serviço pronto: mensagem + PDF" onclick="osEnviarFinalizada(${os.id})">📨</button><button class="db3-ico del" title="Excluir" onclick="lo2ExcluirOS(${os.id})">🗑️</button></div></div>`;
+        }).join('') : '<div class="db2-empty">🔍 Nenhuma OS encontrada com esse filtro</div>';
+    };
+    pintar();
+    document.querySelectorAll('.db3-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.db3-tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        lo2Filtro = t.dataset.filtro;
+        pintar();
+    }));
+    document.getElementById('lo2-busca').addEventListener('input', e => { lo2Busca = e.target.value; pintar(); });
+    document.getElementById('lo-ir-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
+}
+
+function osEditar(id) {
+    const os = ordens.find(o => o.id === id);
+    if (!os) { alert('OS não encontrada!'); return; }
+    const st = { pendente: ['Pendente', '#f59e0b', '⏳'], aguardando_aprovacao: ['Aguardando Aprovação', '#8b5cf6', '📝'], aguardando_pagamento: ['Aguardando Pagamento', '#06b6d4', '💳'], andamento: ['Em Andamento', '#3b82f6', '🔧'], concluido: ['Concluído', '#22c55e', '✅'], cancelado: ['Cancelado', '#ef4444', '❌'] };
+    document.getElementById('page-title').textContent = 'Editar OS';
+    document.getElementById('content-area').innerHTML = `
+        <div class="no2-root">
+            <div class="db2-header">
+                <div><h2>✏️ Editar OS #${String(os.id).slice(-6)}</h2><p>Atualize os dados do serviço — depois notifique o cliente pelo 💬</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="oe-voltar">← Voltar</button></div>
+            </div>
+            <div class="no2-grid">
+                <div class="no2-form">
+                    <div class="no2-section"><div class="no2-section-title">👤 Cliente e data</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Cliente *</label><select id="oe-cliente">${clientes.map(c => `<option value="${c.id}"${c.id === os.clienteId ? ' selected' : ''}>${c.nome}</option>`).join('')}</select></div>
+                            <div class="form-group"><label>Data *</label><input type="date" id="oe-data" value="${os.data || getDataAtual()}"></div>
+                        </div>
+                    </div>
+                    <div class="no2-section"><div class="no2-section-title">🔫 Equipamento e serviço</div>
+                        <div class="form-group"><label>Equipamento *</label><input type="text" id="oe-equip" value="${os.equipamento || ''}"></div>
+                        <div class="form-group"><label>Descrição / observações</label><textarea id="oe-desc" rows="4">${os.descricao || ''}</textarea></div>
+                    </div>
+                    <div class="no2-section"><div class="no2-section-title">💰 Valor e status</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Valor (R$)</label><input type="number" id="oe-valor" step="0.01" min="0" value="${os.valor || 0}"></div>
+                            <div class="form-group"><label>Status</label><div class="no2-pills">${Object.keys(st).map(s => `<button type="button" class="no2-pill${s === os.status ? ' active' : ''}" data-status="${s}" style="--st:${st[s][1]};">${st[s][2]} ${st[s][0]}</button>`).join('')}</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="no2-side">
+                    <div class="db2-card"><div class="no2-section-title">💡 Ao salvar</div><p class="no2-dica">Se mudar o status para <strong>Concluído</strong>, o app oferece enviar na hora a mensagem de serviço pronto + PDF com valores para o cliente.</p></div>
+                    <button id="oe-salvar" class="no2-salvar">💾 Salvar alterações</button>
+                </div>
+            </div>
+        </div>`;
+    let novoStatus = os.status;
+    document.querySelectorAll('.no2-pill').forEach(p => p.addEventListener('click', () => {
+        document.querySelectorAll('.no2-pill').forEach(x => x.classList.remove('active'));
+        p.classList.add('active');
+        novoStatus = p.dataset.status;
+    }));
+    document.getElementById('oe-voltar')?.addEventListener('click', renderListarOS);
+    document.getElementById('oe-salvar').addEventListener('click', () => {
+        const equipamento = document.getElementById('oe-equip').value.trim();
+        if (!equipamento) { alert('Informe o equipamento'); return; }
+        const virouConcluido = novoStatus === 'concluido' && os.status !== 'concluido';
+        os.clienteId = parseInt(document.getElementById('oe-cliente').value);
+        os.data = document.getElementById('oe-data').value;
+        os.equipamento = equipamento;
+        os.descricao = document.getElementById('oe-desc').value;
+        os.valor = parseFloat(document.getElementById('oe-valor').value) || 0;
+        os.total = os.valor;
+        os.status = novoStatus;
+        salvarOrdens();
+        atualizarContador?.();
+        alert('✅ OS atualizada!');
+        renderListarOS();
+        const c = clientes.find(c => c.id === os.clienteId);
+        if (virouConcluido && c?.telefone && confirm('🎉 Serviço marcado como concluído!\n\nEnviar mensagem de serviço pronto + PDF para ' + c.nome + '?')) osEnviarFinalizada(os.id);
+    });
+}
+
+function osMensagemStatus(id) {
+    const os = ordens.find(o => o.id === id);
+    if (!os) return;
+    const c = clientes.find(c => c.id === os.clienteId);
+    if (!c?.telefone) { alert('❌ Cliente sem telefone cadastrado!\nEdite o cadastro dele na página Clientes.'); return; }
+    const st = { pendente: 'Recebemos seu equipamento e o serviço está na fila ⏳', aguardando_aprovacao: 'Fizemos o diagnóstico e aguardamos sua aprovação para seguir 📝', aguardando_pagamento: 'Serviço concluído — aguardando o pagamento para liberar 💳', andamento: 'Seu equipamento está em manutenção neste momento 🔧', concluido: 'Seu equipamento está PRONTO para retirada! 🎉', cancelado: 'Este atendimento foi cancelado. Fale conosco para mais detalhes.' };
+    const msg = `🔫 *WB AIRSOFT — ATUALIZAÇÃO DE SERVIÇO*\n\nOlá *${c.nome}*!\n\n📋 *OS:* #${String(os.id).slice(-6)}\n🔧 *Equipamento:* ${os.equipamento || '—'}\n📌 *Status:* ${st[os.status] || st.pendente}\n${os.descricao ? '📝 *Detalhes:* ' + os.descricao + '\n' : ''}\nQualquer dúvida, é só chamar!\n*WB Airsoft* 🔫`;
+    window.open('https://wa.me/55' + c.telefone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function osEnviarFinalizada(id) {
+    const os = ordens.find(o => o.id === id);
+    if (!os) return;
+    if (os.status !== 'concluido') { alert('Marque a OS como ✅ Concluída primeiro (botão ✏️ Editar) para enviar o aviso de serviço pronto.'); return; }
+    const c = clientes.find(c => c.id === os.clienteId);
+    const msg = `🔫 *WB AIRSOFT — SERVIÇO CONCLUÍDO* 🎉\n\nOlá *${c?.nome || 'Cliente'}*!\n\nSeu equipamento está PRONTO:\n\n📋 *OS:* #${String(os.id).slice(-6)}\n🔧 *Equipamento:* ${os.equipamento || '—'}\n📝 *Serviço:* ${os.descricao || 'Manutenção'}\n💰 *Valor:* R$ ${(os.valor || 0).toFixed(2).replace('.', ',')}\n📅 *Finalizado:* ${new Date().toLocaleDateString('pt-BR')}\n\nPode passar na loja para retirar. O PDF com todos os detalhes vai anexado!\n\n*WB Airsoft — Qualidade e confiança!* 🔫`;
+    if (c?.telefone) window.open('https://wa.me/55' + c.telefone.replace(/\D/g, '') + '?text=' + encodeURIComponent(msg), '_blank');
+    else alert('❌ Cliente sem telefone — salvando o PDF para enviar por outro canal.');
+    gerarPDF_OS(id, false);
+}
+
+function lo2ExcluirOS(id) {
+    if (!confirm('Excluir esta OS?')) return;
+    const idx = ordens.findIndex(o => o.id === id);
+    if (idx !== -1) { ordens.splice(idx, 1); salvarOrdens(); atualizarContador?.(); renderListarOS(); }
+}
+// ========== OS v3 — PEÇAS, SERVIÇOS, LAUDO TÉCNICO ==========
+function osTotal(os){if(!os)return 0;const it=[...(os.pecas||[]),...(os.servicos||[])];if(!it.length)return os.valor||0;return Math.max(0,it.reduce((a,i)=>a+(i.q||0)*(i.v||0),0)-(os.desconto||0));}
+function os3St(){return {pendente:['Pendente','#f59e0b','⏳'],aguardando_aprovacao:['Aguardando Aprovação','#8b5cf6','📝'],aguardando_pagamento:['Aguardando Pagamento','#06b6d4','💳'],andamento:['Em Andamento','#3b82f6','🔧'],concluido:['Concluído','#22c55e','✅'],cancelado:['Cancelado','#ef4444','❌']};}
+function os3Item(tipo,i={}){return `<div class="os3-item" data-tipo="${tipo}"><input type="text" class="os3-i-desc" placeholder="Descrição" value="${i.d||''}"><input type="number" class="os3-i-qtd" min="1" placeholder="Qtd" value="${i.q||1}"><input type="number" class="os3-i-vu" step="0.01" min="0" placeholder="Vl. unit." value="${i.v||''}"><input type="text" class="os3-i-gar" placeholder="Garantia" value="${i.g||''}"><button type="button" class="os3-i-del" title="Remover">🗑️</button></div>`;}
+function os3Ler(tipo){return [...document.querySelectorAll(`.os3-item[data-tipo="${tipo}"]`)].map(r=>({d:r.querySelector('.os3-i-desc').value.trim(),q:parseFloat(r.querySelector('.os3-i-qtd').value)||1,v:parseFloat(r.querySelector('.os3-i-vu').value)||0,g:r.querySelector('.os3-i-gar').value.trim()})).filter(i=>i.d);}
+function os3Wire(){const calc=()=>{const it=os3Ler('p').concat(os3Ler('s'));const br=it.reduce((a,i)=>a+i.q*i.v,0);const d=parseFloat(document.getElementById('desconto')?.value)||0;const t=document.getElementById('os3-total');if(t)t.textContent='R$ '+Math.max(0,br-d).toFixed(2).replace('.',',');};const wire=r=>{r.querySelector('.os3-i-del').addEventListener('click',()=>{r.remove();calc();});r.querySelectorAll('input').forEach(x=>x.addEventListener('input',calc));};document.querySelectorAll('.os3-item').forEach(wire);['p','s'].forEach(tipo=>{const btn=document.getElementById(tipo==='p'?'os3-add-p':'os3-add-s');const cont=document.getElementById(tipo==='p'?'os3-pecas':'os3-servicos');btn?.addEventListener('click',()=>{cont.insertAdjacentHTML('beforeend',os3Item(tipo));wire(cont.lastElementChild);});});document.getElementById('desconto')?.addEventListener('input',calc);}
+function os3BlocoTec(os={}){const p=os.pecas||[],s=os.servicos||[];return `
+    <div class="no2-section"><div class="no2-section-title">🧯 Diagnóstico</div>
+        <div class="no2-row">
+            <div class="form-group"><label>Defeito relatado</label><input type="text" id="defeito" placeholder="Ex: Não dispara / vazando gás" value="${os.defeito||''}"></div>
+            <div class="form-group"><label>Acessórios entregues</label><input type="text" id="acessorios" placeholder="Ex: cabo, carregador, magazine" value="${os.acessorios||''}"></div>
+        </div>
+        <div class="form-group"><label>Laudo técnico</label><textarea id="laudo" rows="3" placeholder="O que foi encontrado, o que será feito, parecer...">${os.laudo||''}</textarea></div>
+        <div class="form-group"><label>Observações / descrição do serviço</label><textarea id="descricao" rows="2" placeholder="Informações livres, combinados com o cliente...">${os.descricao||''}</textarea></div>
+    </div>
+    <div class="no2-section"><div class="no2-section-title">🔩 Peças e produtos</div><div id="os3-pecas">${p.map(i=>os3Item('p',i)).join('')}</div><button type="button" id="os3-add-p" class="os3-add">➕ Adicionar peça/produto</button></div>
+    <div class="no2-section"><div class="no2-section-title">🛠️ Serviços</div><div id="os3-servicos">${s.map(i=>os3Item('s',i)).join('')}</div><button type="button" id="os3-add-s" class="os3-add">➕ Adicionar serviço</button>
+        <div class="no2-row" style="margin-top:12px;"><div class="form-group"><label>Desconto (R$)</label><input type="number" id="desconto" step="0.01" min="0" placeholder="0,00" value="${os.desconto||''}"></div><div class="form-group"><label>Total da OS (calculado)</label><div class="os3-total" id="os3-total">R$ 0,00</div></div></div>
+    </div>`;}
+function renderNovaOS(){
+    document.getElementById('page-title').textContent='Nova OS';
+    const st=os3St();
+    const ops=clientes.map(c=>`<option value="${c.id}">${c.nome}${c.telefone?' · '+c.telefone:''}</option>`).join('');
+    document.getElementById('content-area').innerHTML=`
+        <div class="no2-root">
+            <div class="db2-header"><div><h2>📝 Nova Ordem de Serviço</h2><p>Registre defeito, laudo, peças e serviços — o total é calculado sozinho</p></div></div>
+            ${clientes.length===0?`<div class="no2-alert">👥 Nenhum cliente cadastrado. <button class="db2-link" id="no2-ir-clientes">Cadastrar agora →</button></div>`:''}
+            <div class="no2-grid">
+                <div class="no2-form">
+                    <div class="no2-section"><div class="no2-section-title">👤 Cliente e equipamento</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Cliente *</label><select id="clienteId"><option value="">Selecione um cliente</option>${ops}</select></div>
+                            <div class="form-group"><label>Data *</label><input type="date" id="data" value="${getDataAtual()}"></div>
+                        </div>
+                        <div class="form-group"><label>Equipamento *</label><input type="text" id="equipamento" placeholder="Ex: Pistola Glock 17 / Fuzil Krytac"></div>
+                    </div>
+                    ${os3BlocoTec()}
+                    <div class="no2-section"><div class="no2-section-title">📌 Status inicial</div>
+                        <input type="hidden" id="status" value="pendente"><div class="no2-pills">${Object.keys(st).map(s=>`<button type="button" class="no2-pill${s==='pendente'?' active':''}" data-status="${s}" style="--st:${st[s][1]};">${st[s][2]} ${st[s][0]}</button>`).join('')}</div>
+                    </div>
+                </div>
+                <div class="no2-side">
+                    <div class="db2-card"><div class="no2-section-title">💡 Como funciona</div><p class="no2-dica">Some peças e serviços nas listas — o <strong>total é calculado automaticamente</strong> e vai para o PDF e para o WhatsApp do cliente. Use o campo Garantia de cada item (ex: 6 meses).</p></div>
+                    <button id="btn-salvar-os" class="no2-salvar">💾 Salvar Ordem de Serviço</button>
+                </div>
+            </div>
+        </div>`;
+    let novoStatus='pendente';
+    document.querySelectorAll('.no2-pill').forEach(p=>p.addEventListener('click',()=>{document.querySelectorAll('.no2-pill').forEach(x=>x.classList.remove('active'));p.classList.add('active');novoStatus=p.dataset.status;document.getElementById('status').value=novoStatus;}));
+    document.getElementById('no2-ir-clientes')?.addEventListener('click',()=>document.querySelector('.nav-item[data-page="clientes"]')?.click());
+    os3Wire();
+    document.getElementById('btn-salvar-os').addEventListener('click',()=>{
+        const clienteId=document.getElementById('clienteId').value;
+        if(!clienteId){alert('Selecione um cliente');return;}
+        const equipamento=document.getElementById('equipamento').value.trim();
+        if(!equipamento){alert('Informe o equipamento');return;}
+        const pecas=os3Ler('p'),servicos=os3Ler('s');
+        const bruto=pecas.concat(servicos).reduce((a,i)=>a+i.q*i.v,0);
+        const desconto=parseFloat(document.getElementById('desconto').value)||0;
+        const total=Math.max(0,bruto-desconto);
+        ordens.push({id:Date.now(),clienteId:parseInt(clienteId),data:document.getElementById('data').value,equipamento,descricao:document.getElementById('descricao').value,defeito:document.getElementById('defeito').value.trim(),laudo:document.getElementById('laudo').value.trim(),acessorios:document.getElementById('acessorios').value.trim(),pecas,servicos,desconto,valor:total,total,status:novoStatus});
+        salvarOrdens();atualizarContador?.();
+        alert('✅ OS salva com sucesso!');
+        renderListarOS();
+    });
+}
+function osEditar(id){
+    const os=ordens.find(o=>o.id===id);
+    if(!os){alert('OS não encontrada!');return;}
+    const st=os3St();
+    document.getElementById('page-title').textContent='Editar OS';
+    document.getElementById('content-area').innerHTML=`
+        <div class="no2-root">
+            <div class="db2-header">
+                <div><h2>✏️ Editar OS #${String(os.id).slice(-6)}</h2><p>Atualize diagnóstico, peças, serviços e valores</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="oe-voltar">← Voltar</button></div>
+            </div>
+            <div class="no2-grid">
+                <div class="no2-form">
+                    <div class="no2-section"><div class="no2-section-title">👤 Cliente e equipamento</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Cliente *</label><select id="clienteId">${clientes.map(c=>`<option value="${c.id}"${c.id===os.clienteId?' selected':''}>${c.nome}</option>`).join('')}</select></div>
+                            <div class="form-group"><label>Data *</label><input type="date" id="data" value="${os.data||getDataAtual()}"></div>
+                        </div>
+                        <div class="form-group"><label>Equipamento *</label><input type="text" id="equipamento" value="${os.equipamento||''}"></div>
+                    </div>
+                    ${os3BlocoTec(os)}
+                    <div class="no2-section"><div class="no2-section-title">📌 Status</div>
+                        <input type="hidden" id="status" value="${os.status}"><div class="no2-pills">${Object.keys(st).map(s=>`<button type="button" class="no2-pill${s===os.status?' active':''}" data-status="${s}" style="--st:${st[s][1]};">${st[s][2]} ${st[s][0]}</button>`).join('')}</div>
+                    </div>
+                </div>
+                <div class="no2-side">
+                    <div class="db2-card"><div class="no2-section-title">💡 Ao salvar</div><p class="no2-dica">Se mudar o status para <strong>Concluído</strong>, o app oferece enviar a mensagem de serviço pronto + PDF atualizado com peças e valores para o cliente.</p></div>
+                    <button id="oe-salvar" class="no2-salvar">💾 Salvar alterações</button>
+                </div>
+            </div>
+        </div>`;
+    let novoStatus=os.status;
+    document.querySelectorAll('.no2-pill').forEach(p=>p.addEventListener('click',()=>{document.querySelectorAll('.no2-pill').forEach(x=>x.classList.remove('active'));p.classList.add('active');novoStatus=p.dataset.status;document.getElementById('status').value=novoStatus;}));
+    document.getElementById('oe-voltar')?.addEventListener('click',renderListarOS);
+    os3Wire();
+    document.getElementById('desconto')?.dispatchEvent(new Event('input'));
+    document.getElementById('oe-salvar').addEventListener('click',()=>{
+        const equipamento=document.getElementById('equipamento').value.trim();
+        if(!equipamento){alert('Informe o equipamento');return;}
+        const virouConcluido=novoStatus==='concluido'&&os.status!=='concluido';
+        const pecas=os3Ler('p'),servicos=os3Ler('s');
+        const bruto=pecas.concat(servicos).reduce((a,i)=>a+i.q*i.v,0);
+        const desconto=parseFloat(document.getElementById('desconto').value)||0;
+        const total=Math.max(0,bruto-desconto);
+        Object.assign(os,{clienteId:parseInt(document.getElementById('clienteId').value),data:document.getElementById('data').value,equipamento,descricao:document.getElementById('descricao').value,defeito:document.getElementById('defeito').value.trim(),laudo:document.getElementById('laudo').value.trim(),acessorios:document.getElementById('acessorios').value.trim(),pecas,servicos,desconto,valor:total,total,status:novoStatus});
+        salvarOrdens();atualizarContador?.();
+        alert('✅ OS atualizada!');
+        renderListarOS();
+        const c=clientes.find(c=>c.id===os.clienteId);
+        if(virouConcluido&&c?.telefone&&confirm('🎉 Serviço marcado como concluído!\n\nEnviar mensagem de serviço pronto + PDF para '+c.nome+'?'))osEnviarFinalizada(os.id);
+    });
+}
+function gerarPDF_OS(osId,enviarWhatsApp=false){
+    const os=ordens.find(o=>o.id===osId);
+    if(!os){alert('OS não encontrada!');return;}
+    const cliente=clientes.find(c=>c.id===os.clienteId);
+    if(!cliente){alert('Cliente não encontrado!');return;}
+    try{
+        const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+        const brl=v=>'R$ '+(v||0).toFixed(2).replace('.',',');
+        const df=s=>s?new Date(s+'T12:00:00').toLocaleDateString('pt-BR'):'—';
+        const tr=(s,n)=>{s=String(s||'');return s.length>n?s.slice(0,n-3)+'...':s;};
+        const pecas=os.pecas||[],servicos=os.servicos||[];
+        const subP=pecas.reduce((a,i)=>a+i.q*i.v,0),subS=servicos.reduce((a,i)=>a+i.q*i.v,0);
+        const desc=os.desconto||0;
+        const total=pecas.length||servicos.length?Math.max(0,subP+subS-desc):(os.valor||0);
+        doc.setFillColor(18,24,38);doc.rect(0,0,210,34,'F');
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica','bold');doc.setFontSize(20);doc.text('WB AIRSOFT',20,15);
+        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text('Ordem de Serviço - Manutenção Especializada',20,26);
+        doc.setFontSize(11);doc.text('OS #'+os.id.toString().slice(-8),190,15,{align:'right'});
+        doc.setFontSize(8);doc.text('Emissão: '+new Date().toLocaleDateString('pt-BR'),190,26,{align:'right'});
+        let y=44;
+                const stTxt={pendente:'PENDENTE',aguardando_aprovacao:'AGUARD. APROVAÇÃO',aguardando_pagamento:'AGUARD. PAGAMENTO',andamento:'EM ANDAMENTO',concluido:'CONCLUÍDO',cancelado:'CANCELADO'};
+        doc.setFillColor(79,140,255);doc.rect(15,y,180,7,'F');
+        doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+        doc.text('DADOS DO CLIENTE',20,y+5);y+=11;
+        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(60,60,60);
+        doc.text('Nome: '+cliente.nome,20,y);
+        doc.text('Telefone: '+(cliente.telefone||'—'),120,y);y+=6;
+        doc.text('E-mail: '+(cliente.email||'—'),20,y);y+=10;
+        doc.setFillColor(79,140,255);doc.rect(15,y,180,7,'F');
+        doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+        doc.text('EQUIPAMENTO E DIAGNÓSTICO',20,y+5);y+=11;
+        doc.setFont('helvetica','normal');doc.setFontSize(9.5);doc.setTextColor(60,60,60);
+        doc.text('Equipamento: '+tr(os.equipamento,60),20,y);
+        doc.text('Entrada: '+df(os.data),150,y);y+=6;
+        doc.text('Defeito relatado: '+tr(os.defeito||'—',75),20,y);y+=6;
+        doc.text('Acessórios: '+tr(os.acessorios||'—',75),20,y);y+=6;
+        if(os.laudo){const linL=doc.splitTextToSize('Laudo técnico: '+os.laudo,170);doc.text(linL,20,y);y+=linL.length*5;}
+        y+=4;
+        const tabela=(titulo,itens)=>{
+            if(!itens.length)return;
+            if(y>240){doc.addPage();y=20;}
+            doc.setFont('helvetica','bold');doc.setFontSize(8.5);doc.setTextColor(28,35,51);
+            doc.text(titulo,20,y);y+=5;
+            doc.setFontSize(8);doc.setTextColor(110,120,140);
+            doc.text('DESCRIÇÃO',20,y);doc.text('QTD',120,y,{align:'right'});doc.text('VL. UNIT.',148,y,{align:'right'});doc.text('TOTAL',190,y,{align:'right'});
+            doc.setDrawColor(229,233,242);doc.setLineWidth(0.2);doc.line(20,y+2,190,y+2);y+=7;
+            itens.forEach(i=>{
+                if(y>275){doc.addPage();y=20;}
+                doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(60,60,60);
+                doc.text(tr(i.d,38),20,y);
+                doc.text(String(i.q),120,y,{align:'right'});
+                doc.text(brl(i.v),148,y,{align:'right'});
+                doc.text(brl(i.q*i.v),190,y,{align:'right'});
+                if(i.g){doc.setFontSize(7);doc.setTextColor(150,155,165);doc.text('Garantia: '+i.g,20,y+4);doc.setFontSize(8.5);}
+                y+=i.g?9:6;
+            });
+            y+=3;
+        };
+        tabela('PEÇAS E PRODUTOS',pecas);
+        tabela('SERVIÇOS',servicos);
+        if(y>240){doc.addPage();y=20;}
+        doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(60,60,60);
+        doc.text('Subtotal peças: '+brl(subP),130,y,{align:'right'});y+=6;
+        doc.text('Subtotal serviços: '+brl(subS),130,y,{align:'right'});y+=6;
+        if(desc>0){doc.text('Desconto: -'+brl(desc),130,y,{align:'right'});y+=6;}
+        doc.setFillColor(22,163,74);doc.roundedRect(120,y,70,10,2,2,'F');
+        doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(11);
+        doc.text('TOTAL: '+brl(total),155,y+7,{align:'center'});y+=18;
+        if(os.descricao){
+            if(y>250){doc.addPage();y=20;}
+            doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(110,120,140);
+            const linO=doc.splitTextToSize('Obs.: '+os.descricao,170);
+            doc.text(linO,20,y);y+=linO.length*4+6;
+        }
+        if(y>255){doc.addPage();y=20;}
+        doc.setDrawColor(150,150,150);doc.setLineWidth(0.5);doc.line(30,y,85,y);doc.line(125,y,180,y);
+        doc.setTextColor(100,100,100);doc.setFontSize(8);
+        doc.text('Assinatura do Cliente',57,y+5,{align:'center'});
+        doc.text('Assinatura do Técnico',152,y+5,{align:'center'});
+        doc.setFillColor(18,24,38);doc.rect(0,285,210,12,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(7);
+        doc.text('WB Airsoft - Especialista em manutenção de equipamentos Airsoft',105,290,{align:'center'});
+        doc.text('Garantia conforme indicado nos itens | Horário comercial: 09h às 18h',105,295,{align:'center'});
+        const pdfBlob=doc.output('blob');
+        const nomeArquivo='OS_'+os.id.toString().slice(-8)+'_'+cliente.nome.replace(/\s/g,'_')+'.pdf';
+        if(enviarWhatsApp)enviarPDF_WA(pdfBlob,nomeArquivo,cliente,os);
+        else salvarPDFComEscolha(pdfBlob,nomeArquivo);
+    }catch(error){
+        console.error('Erro ao gerar PDF:',error);
+        alert('Erro ao gerar PDF: '+error.message);
+    }
+}

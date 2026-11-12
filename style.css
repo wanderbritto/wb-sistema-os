@@ -2875,3 +2875,13 @@ body.light-theme .rl2-progress{background:#e5e9f2}
 #rl2-meta:focus{border-color:#4f8cff}
 .rl2-btn-demo{background:linear-gradient(135deg,#4f8cff,#3b6fe0);border:0;border-radius:8px;padding:8px 14px;color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:10px}
 .rl2-btn-demo:hover{transform:translateY(-1px)}
+/* ===== OS v3 — PEÇAS E SERVIÇOS ===== */
+.os3-item{display:grid;grid-template-columns:1fr 70px 100px 110px 40px;gap:8px;margin-bottom:8px;align-items:center}
+.os3-item input{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#e8ecf4;font-size:13px;outline:none;width:100%}
+.os3-item input:focus{border-color:#4f8cff}
+body.light-theme .os3-item input{background:#fff;border-color:#d9dfeb;color:#1c2333}
+.os3-i-del{background:transparent;border:0;cursor:pointer;font-size:15px;opacity:.6}
+.os3-i-del:hover{opacity:1}
+.os3-add{background:rgba(79,140,255,.1);border:1px dashed rgba(79,140,255,.4);border-radius:8px;padding:8px 14px;color:#4f8cff;font-size:12.5px;font-weight:600;cursor:pointer;width:100%}
+.os3-add:hover{background:rgba(79,140,255,.18)}
+.os3-total{font-size:22px;font-weight:800;color:#22c55e;font-variant-numeric:tabular-nums}
