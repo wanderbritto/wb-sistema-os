@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<title>WB OS — Recebimento</title>
+<style>
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+body{background:#0d1117;color:#e8ecf4;font-family:-apple-system,'Segoe UI',sans-serif;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px);max-width:480px;margin:0 auto}
+header{text-align:center;margin-bottom:18px}
+header .logo{font-size:30px}
+header h1{font-size:18px;margin-top:4px}
+header p{font-size:13px;color:#8b94a7}
+.card{background:#161c28;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px}
+label{font-size:12.5px;font-weight:700;color:#8b94a7;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{width:100%;background:#0d1117;border:1px solid #2a3140;border-radius:12px;padding:12px;font-size:16px;color:#e8ecf4;outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:#4f8cff}
+textarea{resize:vertical}
+.pills{display:flex;gap:8px}
+.pill{flex:1;padding:12px;border-radius:12px;border:1px solid #2a3140;background:#0d1117;color:#8b94a7;font-weight:600;font-size:14px}
+.pill.on{border-color:#4f8cff;color:#fff;background:rgba(79,140,255,.15)}
+#salvar,.acao{background:linear-gradient(135deg,#4f8cff,#3b6fe0);border:0;border-radius:14px;padding:16px;font-size:16px;font-weight:700;color:#fff;width:100%;cursor:pointer}
+.acao{margin-bottom:10px}
+.ghost{background:transparent;border:1px solid #2a3140;color:#8b94a7}
+.carga{font-size:13px;color:#8b94a7;text-align:center;min-height:18px;margin-bottom:8px}
+.ok-ico{font-size:56px;text-align:center}
+h2{text-align:center;margin:6px 0}
+#ok-detalhe{color:#8b94a7;text-align:center;margin-bottom:18px;font-size:14px}
+</style>
+</head>
+<body>
+<main id="tela-form">
+    <header><div class="logo">🔫</div><h1>WB AIRSOFT</h1><p>Recebimento de equipamento</p></header>
+    <div class="card">
+        <div class="carga" id="cli-loading">⏳ Carregando clientes...</div>
+        <div><label>Cliente</label><select id="cliente"></select></div>
+        <div id="novo-cliente" style="display:none">
+            <div style="margin-bottom:10px"><label>Nome do novo cliente</label><input id="nc-nome" placeholder="Nome completo"></div>
+            <div><label>WhatsApp (opcional)</label><input id="nc-tel" type="tel" inputmode="tel" placeholder="(11) 99999-9999"></div>
+        </div>
+        <div><label>Data</label><input type="date" id="data"></div>
+        <div><label>Equipamento *</label><input id="equipamento" placeholder="Ex: Pistola Glock 17"></div>
+        <div><label>Defeito relatado</label><textarea id="defeito" rows="2" placeholder="O que o cliente reclamou..."></textarea></div>
+        <div><label>Observações</label><textarea id="obs" rows="2" placeholder="Acessórios, combinados..."></textarea></div>
+        <div><label>Valor estimado (R$)</label><input type="number" id="valor" step="0.01" inputmode="decimal" placeholder="0,00"></div>
+        <div><label>Situação</label>
+            <div class="pills">
+                <button type="button" class="pill on" data-s="pendente">⏳ Na fila</button>
+                <button type="button" class="pill" data-s="andamento">🔧 Em manutenção</button>
+            </div>
+        </div>
+        <button id="salvar">✅ Registrar OS</button>
+    </div>
+</main>
+<main id="tela-ok" style="display:none">
+    <header><div class="logo">🔫</div><h1>WB AIRSOFT</h1></header>
+    <div class="card">
+        <div class="ok-ico">✅</div>
+        <h2>OS registrada!</h2>
+        <p id="ok-detalhe"></p>
+        <button class="acao" id="btn-avisar">💬 Avisar cliente no WhatsApp</button>
+        <button class="acao ghost" id="btn-outra">➕ Registrar outro equipamento</button>
+    </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const sb = supabase.createClient('https://cmdbhxnlhwwfssodtxpl.supabase.co','sb_publishable_ejR2-145S05asosBAk5M0g_8Kvcz9Z4');
+let clientes = [], statusSel = 'pendente', ultimo = {};
+function dataISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+async function carregar(){
+    const l=document.getElementById('cli-loading');
+    const {data,error}=await sb.from('clientes').select('*').order('nome');
+    if(error){l.textContent='⚠️ Erro ao carregar clientes — verifique a internet';return;}
+    clientes=data||[];
+    l.textContent='';
+    const sel=document.getElementById('cliente');
+    sel.innerHTML='<option value="">Selecione...</option>'+clientes.map(c=>'<option value="'+c.id+'">'+c.nome+(c.telefone?' · '+c.telefone:'')+'</option>').join('')+'<option value="__novo">➕ Cadastrar novo cliente</option>';
+}
+document.getElementById('cliente').addEventListener('change',e=>{
+    document.getElementById('novo-cliente').style.display=e.target.value==='__novo'?'block':'none';
+});
+document.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{
+    document.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));
+    p.classList.add('on');statusSel=p.dataset.s;
+}));
+document.getElementById('salvar').addEventListener('click',async function(){
+    let clienteId=document.getElementById('cliente').value;
+    if(clienteId==='__novo'){
+        const nome=document.getElementById('nc-nome').value.trim();
+        if(!nome){alert('Informe o nome do novo cliente');return;}
+        const tel=document.getElementById('nc-tel').value.replace(/\D/g,'');
+        const {data,error}=await sb.from('clientes').insert({id:Date.now(),nome,telefone:tel||'',email:''}).select();
+        if(error){alert('Erro ao criar cliente: '+error.message);return;}
+        clienteId=data[0].id;ultimo.nome=nome;ultimo.telefone=tel;
+    } else {
+        const c=clientes.find(x=>String(x.id)===String(clienteId));
+        ultimo.nome=c?c.nome:'';ultimo.telefone=c?c.telefone:'';
+    }
+    if(!clienteId){alert('Selecione um cliente');return;}
+    const equip=document.getElementById('equipamento').value.trim();
+    if(!equip){alert('Informe o equipamento');return;}
+    const v=parseFloat(document.getElementById('valor').value)||0;
+    const id=Date.now();
+    const reg={id,cliente_id:Number(clienteId),data:dataISO(),equipamento:equip,descricao:document.getElementById('obs').value.trim(),defeito:document.getElementById('defeito').value.trim(),laudo:'',acessorios:'',pecas:[],servicos:[],desconto:0,valor:v,total:v,status:statusSel};
+    this.disabled=true;this.textContent='⏳ Enviando...';
+    const {error}=await sb.from('ordens').insert(reg);
+    this.disabled=false;this.textContent='✅ Registrar OS';
+    if(error){alert('Erro ao salvar OS: '+error.message);return;}
+    ultimo.os=String(id).slice(-6);
+    document.getElementById('ok-detalhe').textContent='OS #'+ultimo.os+' · '+ultimo.nome+' · '+equip;
+    document.getElementById('tela-form').style.display='none';
+    document.getElementById('tela-ok').style.display='block';
+});
+document.getElementById('btn-avisar').addEventListener('click',()=>{
+    const tel=(ultimo.telefone||'').replace(/\D/g,'');
+    if(!tel){alert('Cliente sem telefone cadastrado');return;}
+    const msg='🔫 *WB AIRSOFT*\n\nOlá *'+ultimo.nome+'*!\n\nRecebemos seu equipamento para manutenção.\n📋 *OS:* #'+ultimo.os+'\n\nAvisaremos quando estiver pronto!\n*WB Airsoft* 🔫';
+    window.open('https://wa.me/55'+tel+'?text='+encodeURIComponent(msg),'_blank');
+});
+document.getElementById('btn-outra').addEventListener('click',()=>{
+    ['equipamento','defeito','obs','valor'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('cliente').value='';
+    document.getElementById('novo-cliente').style.display='none';
+    document.getElementById('tela-ok').style.display='none';
+    document.getElementById('tela-form').style.display='block';
+});
+document.getElementById('data').value=dataISO();
+carregar();
+</script>
+</body>
+</html>
