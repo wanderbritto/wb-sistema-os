@@ -1,6 +1,5 @@
 // ========== BIBLIOTECAS ==========
 const { jsPDF } = require('jspdf');
-require('jspdf-autotable');
 const { createClient } = require('@supabase/supabase-js');
 
 // ========== CONFIGURAÇÕES ==========
@@ -382,35 +381,6 @@ function enviarLembreteRevisaoWhatsApp(clienteNome, clienteTelefone, equipamento
     window.open(`https://wa.me/55${telefone}?text=${encodeURIComponent(mensagem)}`, '_blank');
 }
 
-function renderTodasRevisoes() {
-    const revisoes = getRevisoesPendentes();
-    const revisoesProximas = revisoes.filter(r => r.status === 'proxima');
-    const revisoesAtrasadas = revisoes.filter(r => r.status === 'atrasada');
-    const html = `
-        <div class="card">
-            <div class="revisoes-header"><h3>🔧 Revisões Periódicas</h3><button id="btn-voltar-dashboard-revisoes" class="btn-voltar-revisoes">← Voltar</button></div>
-            <div style="padding: 20px;">
-                ${revisoes.length === 0 ? '<div class="empty-message">✅ Nenhuma revisão pendente</div>' : `
-                    ${revisoesAtrasadas.length > 0 ? `<h4 style="color:#f44336;">⚠️ ATRASADAS</h4>${revisoesAtrasadas.map(r => `
-                        <div class="revisao-item ${r.status}"><div><strong>👤 ${r.clienteNome}</strong><br>🔫 ${r.equipamento}<br>📅 Próxima revisão: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</div>
-                        <button class="btn-enviar-lembrete-lista" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Enviar Lembrete</button></div>
-                    `).join('')}` : ''}
-                    ${revisoesProximas.length > 0 ? `<h4 style="color:#ff9800;">⏰ PRÓXIMAS</h4>${revisoesProximas.map(r => `
-                        <div class="revisao-item ${r.status}"><div><strong>👤 ${r.clienteNome}</strong><br>🔫 ${r.equipamento}<br>📅 Próxima revisão: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</div>
-                        <button class="btn-enviar-lembrete-lista" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Enviar Lembrete</button></div>
-                    `).join('')}` : ''}
-                `}
-            </div>
-        </div>
-    `;
-    document.getElementById('content-area').innerHTML = html;
-    document.getElementById('page-title').textContent = 'Revisões';
-    document.getElementById('btn-voltar-dashboard-revisoes')?.addEventListener('click', () => { renderDashboard(); document.getElementById('page-title').textContent = 'Dashboard'; });
-    document.querySelectorAll('.btn-enviar-lembrete-lista').forEach(btn => {
-        btn.addEventListener('click', () => enviarLembreteRevisaoWhatsApp(btn.dataset.cliente, btn.dataset.telefone, btn.dataset.equipamento));
-    });
-}
-
 // ========== FUNÇÕES AUXILIARES ==========
 function carregarDados() {
     const clientesSalvo = localStorage.getItem('wb_os_clientes');
@@ -428,155 +398,6 @@ function salvarOrdens() { localStorage.setItem('wb_os_ordens', JSON.stringify(or
 function getDataAtual() { return new Date().toISOString().split('T')[0]; }
 function formatarData(dataISO) { if (!dataISO) return ''; const p = dataISO.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
 function atualizarContador() { const c = document.getElementById('contador-os'); if (c) c.textContent = `${ordens.length} OS`; }
-
-// ========== RENDER DASHBOARD ==========
-async function renderDashboard() {
-    console.log('Renderizando Dashboard...');
-    await carregarAgendamentosSupabase();
-    const agendamentosPendentes = agendamentos.filter(a => a.status === 'pendente');
-    const revisoes = getRevisoesPendentes();
-    const totalRevisoes = revisoes.length;
-    
-    const contentArea = document.getElementById('content-area');
-    if (!contentArea) return;
-    
-    const totalClientes = clientes.length;
-    const totalOrdens = ordens.length;
-    const totaisStatus = {
-        pendente: ordens.filter(o => o.status === 'pendente').length,
-        andamento: ordens.filter(o => o.status === 'andamento').length,
-        concluido: ordens.filter(o => o.status === 'concluido').length,
-        aguardando_aprovacao: ordens.filter(o => o.status === 'aguardando_aprovacao').length,
-        aguardando_pagamento: ordens.filter(o => o.status === 'aguardando_pagamento').length,
-        cancelado: ordens.filter(o => o.status === 'cancelado').length
-    };
-    const ultimasOS = [...ordens].reverse().slice(0, 5);
-    
-    contentArea.innerHTML = `
-        <div class="dashboard-profissional">
-            <div class="welcome-header"><h2>👋 Olá, ${usuarioAtual?.nome || 'Usuário'}!</h2><p>Bem-vindo ao seu sistema de gestão de ordens de serviço</p></div>
-            <div class="stats-grid-dashboard">
-                <div class="stat-card-dashboard"><div class="stat-icon">👥</div><div class="stat-info"><div class="stat-number">${totalClientes}</div><div class="stat-label">Clientes</div></div></div>
-                <div class="stat-card-dashboard"><div class="stat-icon">📋</div><div class="stat-info"><div class="stat-number">${totalOrdens}</div><div class="stat-label">Total de OS</div></div></div>
-            </div>
-            <div class="revisoes-card"><div class="revisoes-header"><h3>🔧 Revisões Periódicas ${totalRevisoes > 0 ? `<span class="badge-revisao">${totalRevisoes} pendente(s)</span>` : ''}</h3><button id="btn-ver-todas-revisoes" class="btn-ver-revisoes">Ver todas →</button></div>
-                ${totalRevisoes === 0 ? '<div class="empty-message">✅ Nenhuma revisão pendente</div>' : `<div class="revisoes-lista">${revisoes.slice(0, 3).map(r => `<div class="revisao-item ${r.status}"><div><strong>👤 ${r.clienteNome}</strong><br>🔫 ${r.equipamento}<br>📅 Próxima: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</div><button class="btn-enviar-lembrete" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Enviar</button></div>`).join('')}${totalRevisoes > 3 ? `<div class="mais-revisoes">+ ${totalRevisoes - 3} revisão(ões)</div>` : ''}</div>`}
-            </div>
-            <div class="agendamentos-card"><div class="agendamentos-header"><h3>📅 Novos Agendamentos ${agendamentosPendentes.length > 0 ? `<span class="badge-novo">${agendamentosPendentes.length} novo(s)</span>` : ''}</h3><button id="btn-ver-agendamentos" class="btn-ver-agendamentos">Ver todos →</button></div>
-                ${agendamentosPendentes.length === 0 ? '<div class="empty-message">Nenhum agendamento pendente</div>' : `<div class="agendamentos-lista">${agendamentosPendentes.slice(0, 3).map(a => `<div class="agendamento-item"><div class="agendamento-info"><strong>👤 ${a.nome}</strong><span>📞 ${a.telefone}</span><span>🔫 ${a.equipamento}</span><span>📅 ${a.data} às ${a.horario}</span></div><div class="agendamento-actions"><button class="btn-criar-os-agendamento" data-id="${a.id}">➕ Criar OS</button><button class="btn-ignorar-agendamento" data-id="${a.id}">🗑️ Ignorar</button></div></div>`).join('')}${agendamentosPendentes.length > 3 ? `<div class="mais-agendamentos">+ ${agendamentosPendentes.length - 3} agendamento(s)</div>` : ''}</div>`}
-            </div>
-            <div class="status-cards-grid">
-                <div class="status-card-item status-pendente"><div class="status-card-icon">⏳</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.pendente}</div><div class="status-card-label">Pendentes</div></div></div>
-                <div class="status-card-item status-aprovacao"><div class="status-card-icon">📋</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.aguardando_aprovacao}</div><div class="status-card-label">Aguardando Aprovação</div></div></div>
-                <div class="status-card-item status-pagamento"><div class="status-card-icon">💳</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.aguardando_pagamento}</div><div class="status-card-label">Aguardando Pagamento</div></div></div>
-                <div class="status-card-item status-andamento"><div class="status-card-icon">🔧</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.andamento}</div><div class="status-card-label">Em Andamento</div></div></div>
-                <div class="status-card-item status-concluido"><div class="status-card-icon">✅</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.concluido}</div><div class="status-card-label">Concluídos</div></div></div>
-                <div class="status-card-item status-cancelado"><div class="status-card-icon">❌</div><div class="status-card-info"><div class="status-card-number">${totaisStatus.cancelado}</div><div class="status-card-label">Cancelados</div></div></div>
-            </div>
-            <div class="ultimas-os-card"><h3>📋 Últimas Ordens de Serviço</h3>${ultimasOS.length === 0 ? '<div class="empty-message">Nenhuma OS cadastrada</div>' : `<div class="ultimas-os-list">${ultimasOS.map(os => { const c = clientes.find(c => c.id === os.clienteId); return `<div class="ultima-os-item"><div class="os-info"><span class="os-data">📅 ${formatarData(os.data)}</span><span class="os-cliente">👤 ${c?.nome || 'N/A'}</span></div><div class="os-valor-status"><span class="os-valor">R$ ${(os.valor || 0).toFixed(2)}</span><span class="os-status status-badge status-${os.status}">${os.status === 'pendente' ? 'Pendente' : os.status === 'andamento' ? 'Em Andamento' : 'Concluído'}</span></div></div>`; }).join('')}</div>`}<button id="btn-ver-todas" class="btn-ver-todas">Ver todas as OS →</button></div>
-            <div class="atalhos-card"><h3>⚡ Atalhos Rápidos</h3><div class="atalhos-grid"><button class="atalho-btn" id="atalho-nova-os">➕ Nova OS</button><button class="atalho-btn" id="atalho-clientes">👥 Cadastrar Cliente</button><button class="atalho-btn" id="atalho-listar">📋 Listar OS</button><button class="atalho-btn" id="atalho-resumo">📊 Ver Resumo</button></div></div>
-        </div>
-    `;
-    
-    document.getElementById('btn-ver-todas')?.addEventListener('click', () => document.getElementById('btn-listar-os')?.click());
-    document.getElementById('atalho-nova-os')?.addEventListener('click', () => document.getElementById('btn-nova-os')?.click());
-    document.getElementById('atalho-clientes')?.addEventListener('click', () => document.getElementById('btn-clientes')?.click());
-    document.getElementById('atalho-listar')?.addEventListener('click', () => document.getElementById('btn-listar-os')?.click());
-    document.getElementById('atalho-resumo')?.addEventListener('click', () => document.getElementById('btn-resumo')?.click());
-    
-    document.querySelectorAll('.btn-criar-os-agendamento').forEach(btn => {
-        btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); } });
-    });
-    document.querySelectorAll('.btn-ignorar-agendamento').forEach(btn => {
-        btn.addEventListener('click', async () => { if (confirm('Marcar como ignorado?')) { await excluirAgendamentoSupabase(parseInt(btn.dataset.id)); await renderDashboard(); } });
-    });
-    document.getElementById('btn-ver-agendamentos')?.addEventListener('click', () => renderAgendamentos());
-    document.querySelectorAll('.btn-enviar-lembrete').forEach(btn => {
-        btn.addEventListener('click', () => enviarLembreteRevisaoWhatsApp(btn.dataset.cliente, btn.dataset.telefone, btn.dataset.equipamento));
-    });
-    document.getElementById('btn-ver-todas-revisoes')?.addEventListener('click', () => renderTodasRevisoes());
-}
-
-// ========== RENDER CLIENTES ==========
-function renderClientes() {
-    const contentArea = document.getElementById('content-area');
-    contentArea.innerHTML = `
-        <div class="card"><h3>➕ Novo Cliente</h3><form id="form-cliente"><div class="form-group"><label>Nome *</label><input type="text" id="nome" required placeholder="Digite o nome"></div><div class="form-group"><label>Telefone</label><input type="text" id="telefone" placeholder="(99) 99999-9999"></div><div class="form-group"><label>Email</label><input type="email" id="email" placeholder="cliente@email.com"></div><button type="submit">➕ Cadastrar Cliente</button></form></div>
-        <div class="card"><h3>👥 Clientes Cadastrados</h3><div id="lista-clientes" class="clientes-lista">${clientes.length === 0 ? '<div class="empty-message">Nenhum cliente cadastrado</div>' : clientes.map(c => `<div class="cliente-card"><strong>${c.nome}</strong><div class="cliente-info">${c.telefone ? `<span>📞 ${c.telefone}</span>` : ''}${c.email ? `<span>✉️ ${c.email}</span>` : ''}</div><div class="cliente-actions"><button class="btn-editar-cliente" data-id="${c.id}">✏️ Editar</button><button class="btn-excluir-cliente" data-id="${c.id}">🗑️ Excluir</button></div></div>`).join('')}</div></div>
-    `;
-    document.getElementById('form-cliente')?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const nome = document.getElementById('nome').value;
-        if (!nome) { alert('Nome é obrigatório!'); return; }
-        clientes.push({ id: Date.now(), nome, telefone: document.getElementById('telefone').value || '', email: document.getElementById('email').value || '' });
-        salvarClientes();
-        renderClientes();
-        alert('Cliente cadastrado!');
-    });
-    document.querySelectorAll('.btn-editar-cliente').forEach(btn => btn.addEventListener('click', () => editarCliente(parseInt(btn.dataset.id))));
-    document.querySelectorAll('.btn-excluir-cliente').forEach(btn => btn.addEventListener('click', () => excluirCliente(parseInt(btn.dataset.id))));
-}
-
-function editarCliente(clienteId) {
-    const cliente = clientes.find(c => c.id === clienteId);
-    if (!cliente) return;
-    const html = `<div class="card"><h3>✏️ Editar Cliente</h3><div class="form-group"><label>Nome *</label><input type="text" id="edit-nome" value="${cliente.nome}" required></div><div class="form-group"><label>Telefone</label><input type="text" id="edit-telefone" value="${cliente.telefone || ''}"></div><div class="form-group"><label>Email</label><input type="email" id="edit-email" value="${cliente.email || ''}"></div><div style="display:flex;gap:10px;justify-content:flex-end;"><button id="btn-cancelar-edicao" class="btn-secondary">❌ Cancelar</button><button id="btn-salvar-edicao" class="btn-primary">💾 Salvar</button></div></div>`;
-    document.getElementById('content-area').innerHTML = html;
-    document.getElementById('page-title').textContent = 'Editar Cliente';
-    document.getElementById('btn-salvar-edicao')?.addEventListener('click', () => {
-        const nome = document.getElementById('edit-nome').value;
-        if (!nome) { alert('Nome é obrigatório!'); return; }
-        cliente.nome = nome;
-        cliente.telefone = document.getElementById('edit-telefone').value || '';
-        cliente.email = document.getElementById('edit-email').value || '';
-        salvarClientes();
-        renderClientes();
-        document.getElementById('page-title').textContent = 'Clientes';
-    });
-    document.getElementById('btn-cancelar-edicao')?.addEventListener('click', () => { renderClientes(); document.getElementById('page-title').textContent = 'Clientes'; });
-}
-
-function excluirCliente(clienteId) {
-    const cliente = clientes.find(c => c.id === clienteId);
-    if (!cliente) return;
-    if (confirm(`Excluir cliente "${cliente.nome}"?`)) {
-        const index = clientes.findIndex(c => c.id === clienteId);
-        if (index !== -1) {
-            clientes.splice(index, 1);
-            salvarClientes();
-            ordens.forEach(os => { if (os.clienteId === clienteId) os.clienteId = null; });
-            salvarOrdens();
-            renderClientes();
-            atualizarContador();
-            if (document.getElementById('page-title').textContent === 'Dashboard') renderDashboard();
-        }
-    }
-}
-
-// ========== RENDER NOVA OS ==========
-function renderNovaOS() {
-    const contentArea = document.getElementById('content-area');
-    contentArea.innerHTML = `
-        <div class="card"><h3>📝 Nova Ordem de Serviço</h3>
-            <div class="form-group"><label>📅 Data</label><input type="date" id="data" value="${getDataAtual()}"></div>
-            <div class="form-group"><label>👤 Cliente</label><select id="clienteId"><option value="">Selecione um cliente</option>${clientes.map(c => `<option value="${c.id}">${c.nome}</option>`).join('')}</select></div>
-            <div class="form-group"><label>🔫 Equipamento</label><input type="text" id="equipamento" placeholder="Ex: Pistola Glock 17"></div>
-            <div class="form-group"><label>📝 Descrição</label><textarea id="descricao" rows="3"></textarea></div>
-            <div class="form-group"><label>💰 Valor (R$)</label><input type="number" id="valor" step="0.01"></div>
-            <div class="form-group"><label>📌 Status</label><select id="status"><option value="pendente">⏳ Pendente</option><option value="andamento">🔧 Em Andamento</option><option value="concluido">✅ Concluído</option></select></div>
-            <button id="btn-salvar-os">💾 Salvar OS</button>
-        </div>
-    `;
-    document.getElementById('btn-salvar-os')?.addEventListener('click', () => {
-        const clienteId = document.getElementById('clienteId').value;
-        if (!clienteId) { alert('Selecione um cliente'); return; }
-        ordens.push({ id: Date.now(), clienteId: parseInt(clienteId), data: document.getElementById('data').value, equipamento: document.getElementById('equipamento').value, descricao: document.getElementById('descricao').value, valor: parseFloat(document.getElementById('valor').value) || 0, status: document.getElementById('status').value, total: parseFloat(document.getElementById('valor').value) || 0 });
-        salvarOrdens();
-        alert('OS salva!');
-        renderListarOS();
-        document.getElementById('btn-listar-os')?.click();
-    });
-}
 
 // ========== RENDER LISTAR OS ==========
 function renderListarOS() {
@@ -712,100 +533,6 @@ function renderResumo() {
 // ========== RENDER FINANCEIRO ==========
 let faturamentoChart = null;
 
-function renderFinanceiro() {
-    const faturamentoPorMes = {};
-    const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    
-    ordens.forEach(os => {
-        if (os.status === 'concluido' && os.data) {
-            const data = new Date(os.data);
-            const chave = `${data.getFullYear()}-${data.getMonth()}`;
-            if (!faturamentoPorMes[chave]) faturamentoPorMes[chave] = { mes: data.getMonth(), ano: data.getFullYear(), total: 0 };
-            faturamentoPorMes[chave].total += os.valor || 0;
-        }
-    });
-    
-    const ultimosMeses = Object.values(faturamentoPorMes).sort((a, b) => {
-        if (a.ano !== b.ano) return a.ano - b.ano;
-        return a.mes - b.mes;
-    }).slice(-6);
-    
-    const html = `
-        <div class="card"><h3>💰 Financeiro</h3>
-            <div style="margin-bottom:20px;"><canvas id="faturamentoChart" style="max-height:300px;width:100%;"></canvas></div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;">
-                <div style="background:rgba(0,200,83,0.1);border-radius:12px;padding:16px;"><div style="font-size:12px;color:#00c853;">Faturamento Total</div><div style="font-size:28px;font-weight:bold;">R$ ${ordens.filter(o => o.status === 'concluido').reduce((acc, o) => acc + (o.valor || 0), 0).toFixed(2)}</div></div>
-                <div style="background:rgba(255,152,0,0.1);border-radius:12px;padding:16px;"><div style="font-size:12px;color:#ff9800;">A Receber</div><div style="font-size:28px;font-weight:bold;">R$ ${ordens.filter(o => o.status === 'aguardando_pagamento').reduce((acc, o) => acc + (o.valor || 0), 0).toFixed(2)}</div></div>
-                <div style="background:rgba(33,150,243,0.1);border-radius:12px;padding:16px;"><div style="font-size:12px;color:#2196f3;">Média por OS</div><div style="font-size:28px;font-weight:bold;">R$ ${(ordens.filter(o => o.status === 'concluido').reduce((acc, o) => acc + (o.valor || 0), 0) / (ordens.filter(o => o.status === 'concluido').length || 1)).toFixed(2)}</div></div>
-            </div>
-        </div>
-    `;
-    document.getElementById('content-area').innerHTML = html;
-    document.getElementById('page-title').textContent = 'Financeiro';
-    
-    const ctx = document.getElementById('faturamentoChart');
-    if (ctx && ultimosMeses.length > 0) {
-        if (faturamentoChart) faturamentoChart.destroy();
-        faturamentoChart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: ultimosMeses.map(m => `${mesesNomes[m.mes]}/${m.ano}`), datasets: [{ label: 'Faturamento (R$)', data: ultimosMeses.map(m => m.total), borderColor: '#0066cc', backgroundColor: 'rgba(0,102,204,0.1)', fill: true, tension: 0.4 }] },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { callbacks: { label: (ctx) => `R$ ${ctx.raw.toFixed(2)}` } } } }
-        });
-    }
-}
-
-// ========== RENDER RELATÓRIOS ==========
-let relatorioChart = null;
-
-function renderRelatorios() {
-    const ordensConcluidas = ordens.filter(o => o.status === 'concluido');
-    const totalFaturamento = ordensConcluidas.reduce((acc, o) => acc + (o.valor || 0), 0);
-    const equipamentosCount = {};
-    ordens.forEach(os => { if (os.equipamento && os.equipamento !== '-') equipamentosCount[os.equipamento] = (equipamentosCount[os.equipamento] || 0) + 1; });
-    const topEquipamentos = Object.entries(equipamentosCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
-    
-    const html = `
-        <div class="card"><h3>📊 Relatórios</h3>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;">
-                <div style="background:rgba(0,102,204,0.1);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${ordens.length}</div><div>Total OS</div></div>
-                <div style="background:rgba(0,200,83,0.1);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${ordensConcluidas.length}</div><div>OS Concluídas</div></div>
-                <div style="background:rgba(255,152,0,0.1);border-radius:12px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:bold;">R$ ${totalFaturamento.toFixed(2)}</div><div>Faturamento</div></div>
-            </div>
-            <h4>🔫 Top 5 Equipamentos</h4>
-            <div style="margin-top:15px;">${topEquipamentos.length === 0 ? '<div class="empty-message">Nenhum dado</div>' : topEquipamentos.map((e, i) => `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid var(--card-border);"><span>${i+1}. ${e[0]}</span><span style="font-weight:bold;">${e[1]}x</span></div>`).join('')}</div>
-            <div style="margin-top:20px;"><canvas id="relatorioChart" style="max-height:300px;"></canvas></div>
-            <div style="margin-top:20px;"><button id="exportarRelatorioExcel" class="btn-exportar-rel">📊 Exportar Relatório (Excel)</button></div>
-        </div>
-    `;
-    document.getElementById('content-area').innerHTML = html;
-    document.getElementById('page-title').textContent = 'Relatórios';
-    
-    const ctx = document.getElementById('relatorioChart');
-    if (ctx && topEquipamentos.length > 0) {
-        if (relatorioChart) relatorioChart.destroy();
-        relatorioChart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: topEquipamentos.map(e => e[0]), datasets: [{ label: 'Quantidade de OS', data: topEquipamentos.map(e => e[1]), backgroundColor: '#0066cc', borderRadius: 6 }] },
-            options: { responsive: true, maintainAspectRatio: true }
-        });
-    }
-    
-    document.getElementById('exportarRelatorioExcel')?.addEventListener('click', () => {
-        let csv = "Data,Cliente,Equipamento,Valor,Status\n";
-        ordens.forEach(os => {
-            const c = clientes.find(c => c.id === os.clienteId);
-            csv += `"${formatarData(os.data)}","${c?.nome || 'N/A'}","${os.equipamento || '-'}","${(os.valor || 0).toFixed(2)}","${os.status}"\n`;
-        });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `relatorio_os_${new Date().toISOString().slice(0, 10)}.csv`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-        alert('✅ Relatório exportado!');
-    });
-}
-
 // ========== RENDER BACKUP ==========
 let backups = [];
 let intervaloBackup = null;
@@ -902,25 +629,6 @@ function renderBackup() {
 
 function pararBackupAutomatico() {
     if (intervaloBackup) { clearInterval(intervaloBackup); intervaloBackup = null; }
-}
-
-// ========== BASE DE CONHECIMENTO ==========
-const conhecimentoTecnico = [
-    { id: 1, problema: "Pistola não dispara", sintomas: ["gatilho não responde", "sem disparo"], causas: ["Bateria descarregada", "Motor queimado"], solucoes: ["Verifique a bateria", "Teste o motor"], tipo: "pistola", urgencia: "alta" },
-    { id: 2, problema: "Fuzil com baixo desempenho", sintomas: ["tiro fraco", "alcance reduzido"], causas: ["Mola cansada", "Cilindro com vazamento"], solucoes: ["Substituir a mola", "Verificar vedação"], tipo: "fuzil", urgencia: "media" },
-    { id: 3, problema: "GBB com vazamento de gás", sintomas: ["gás vazando", "poucos disparos"], causas: ["O-rings ressecados", "Válvula defeituosa"], solucoes: ["Lubrificar O-rings", "Substituir válvulas"], tipo: "gbb", urgencia: "alta" }
-];
-
-function buscarConhecimento(consulta) {
-    const consultaLower = consulta.toLowerCase();
-    const resultados = [];
-    conhecimentoTecnico.forEach(item => {
-        let pontuacao = 0;
-        if (item.problema.toLowerCase().includes(consultaLower)) pontuacao += 10;
-        item.sintomas.forEach(s => { if (s.toLowerCase().includes(consultaLower)) pontuacao += 5; });
-        if (pontuacao > 0) resultados.push(item);
-    });
-    return resultados.slice(0, 5);
 }
 
 // ========== TEMA ==========
@@ -1082,74 +790,6 @@ async function init() {
 document.getElementById('sidebar-header')?.addEventListener('click', abrirModalLogo);
 carregarLogo();
 init();
-
-// ========== DASHBOARD PROFISSIONAL v2 ==========
-async function renderDashboard() {
-    console.log('Renderizando Dashboard...');
-    await carregarAgendamentosSupabase();
-    document.getElementById('page-title').textContent = 'Dashboard';
-    const agendamentosPendentes = agendamentos.filter(a => a.status === 'pendente');
-    const revisoes = getRevisoesPendentes();
-    const totalRevisoes = revisoes.length;
-    const statusInfo = {
-        pendente: { rotulo: 'Pendente', cor: '#f59e0b', icone: '⏳' },
-        aguardando_aprovacao: { rotulo: 'Aguardando Aprovação', cor: '#8b5cf6', icone: '📝' },
-        aguardando_pagamento: { rotulo: 'Aguardando Pagamento', cor: '#06b6d4', icone: '💳' },
-        andamento: { rotulo: 'Em Andamento', cor: '#3b82f6', icone: '🔧' },
-        concluido: { rotulo: 'Concluído', cor: '#22c55e', icone: '✅' },
-        cancelado: { rotulo: 'Cancelado', cor: '#ef4444', icone: '❌' }
-    };
-    const contarStatus = {};
-    Object.keys(statusInfo).forEach(s => { contarStatus[s] = ordens.filter(o => o.status === s).length; });
-    const faturamentoConcluido = ordens.filter(o => o.status === 'concluido').reduce((acc, o) => acc + (o.valor || 0), 0);
-    const aReceber = ordens.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((acc, o) => acc + (o.valor || 0), 0);
-    const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    const iniciais = nome => (nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
-    const ultimasOS = [...ordens].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 6);
-    const listaOS = ultimasOS.length ? ultimasOS.map(os => {
-        const cliente = clientes.find(c => c.id === os.clienteId);
-        const st = statusInfo[os.status] || statusInfo.pendente;
-        return `<div class="db2-os-row"><div class="db2-avatar" style="background:${st.cor}22;color:${st.cor};">${iniciais(cliente?.nome)}</div><div class="db2-os-info"><strong>${cliente?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Equipamento não informado'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${st.cor}18;color:${st.cor};">${st.icone} ${st.rotulo}</span><strong class="db2-os-valor">R$ ${(os.valor || 0).toFixed(2).replace('.', ',')}</strong></div></div>`;
-    }).join('') : '<div class="db2-empty">📋 Nenhuma OS ainda — crie a primeira em "Nova OS"</div>';
-    const blocoRevisoes = revisoes.length ? revisoes.slice(0, 3).map(r => `<div class="db2-item"><div class="db2-item-main"><strong>👤 ${r.clienteNome}</strong><span>🔫 ${r.equipamento} · próxima: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</span></div><button class="btn-enviar-lembrete db2-mini-btn" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Lembrete</button></div>`).join('') + (totalRevisoes > 3 ? `<div class="db2-more">+ ${totalRevisoes - 3} revisão(ões)</div>` : '') : '<div class="db2-empty">✅ Nenhuma revisão pendente</div>';
-    const blocoAgendamentos = agendamentosPendentes.length ? agendamentosPendentes.slice(0, 3).map(a => `<div class="db2-item"><div class="db2-item-main"><strong>📅 ${a.nome}</strong><span>${a.equipamento || 'Equipamento não informado'} · ${a.data} às ${a.horario}</span></div><div class="db2-item-actions"><button class="btn-criar-os-agendamento db2-mini-btn primary" data-id="${a.id}">➕ OS</button><button class="btn-ignorar-agendamento db2-mini-btn danger" data-id="${a.id}">🗑️</button></div></div>`).join('') + (agendamentosPendentes.length > 3 ? `<div class="db2-more">+ ${agendamentosPendentes.length - 3} agendamento(s)</div>` : '') : '<div class="db2-empty">📭 Nenhum agendamento novo</div>';
-    const contentArea = document.getElementById('content-area');
-    contentArea.innerHTML = `
-        <div class="db2-root">
-            <div class="db2-header">
-                <div><h2>👋 Olá, ${usuarioAtual?.nome || 'Usuário'}!</h2><p>${hoje.charAt(0).toUpperCase() + hoje.slice(1)}</p></div>
-                <div class="db2-header-actions"><button class="db2-btn ghost" id="atalho-clientes">👥 Clientes</button><button class="db2-btn primary" id="atalho-nova">➕ Nova OS</button></div>
-            </div>
-            <div class="db2-kpis">
-                <div class="db2-kpi"><div class="db2-kpi-icon blue">👥</div><div><span class="db2-kpi-valor">${clientes.length}</span><span class="db2-kpi-rotulo">Clientes</span></div></div>
-                <div class="db2-kpi"><div class="db2-kpi-icon violet">📋</div><div><span class="db2-kpi-valor">${ordens.length}</span><span class="db2-kpi-rotulo">Total de OS</span></div></div>
-                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">R$ ${faturamentoConcluido.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">Faturado (concluídas)</span></div></div>
-                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">R$ ${aReceber.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
-            </div>
-            <div class="db2-pipeline">
-                ${Object.keys(statusInfo).map(s => `<div class="db2-stage" style="--st:${statusInfo[s].cor};"><span class="db2-stage-count">${contarStatus[s]}</span><span class="db2-stage-rotulo">${statusInfo[s].rotulo}</span></div>`).join('')}
-            </div>
-            <div class="db2-grid-2">
-                <div class="db2-card"><div class="db2-card-head"><h3>📅 Novos Agendamentos</h3>${agendamentosPendentes.length ? '<button class="db2-link" id="btn-ver-agendamentos">Ver todas →</button>' : ''}</div>${blocoAgendamentos}</div>
-                <div class="db2-card"><div class="db2-card-head"><h3>🔧 Revisões Periódicas</h3></div>${blocoRevisoes}</div>
-            </div>
-            <div class="db2-card"><div class="db2-card-head"><h3>📋 Últimas Ordens de Serviço</h3><button class="db2-link" id="atalho-listar">Ver todas →</button></div><div class="db2-os-list">${listaOS}</div></div>
-        </div>
-    `;
-    document.getElementById('atalho-clientes')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="clientes"]')?.click());
-    document.getElementById('atalho-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
-    document.getElementById('atalho-listar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="listar-os"]')?.click());
-    document.getElementById('btn-ver-agendamentos')?.addEventListener('click', () => renderAgendamentos());
-    document.querySelectorAll('.btn-criar-os-agendamento').forEach(btn => {
-        btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); } });
-    });
-    document.querySelectorAll('.btn-ignorar-agendamento').forEach(btn => {
-        btn.addEventListener('click', async () => { if (confirm('Marcar como ignorado?')) { await excluirAgendamentoSupabase(parseInt(btn.dataset.id)); await renderDashboard(); } });
-    });
-    document.querySelectorAll('.btn-enviar-lembrete').forEach(btn => {
-        btn.addEventListener('click', () => enviarLembreteRevisaoWhatsApp(btn.dataset.cliente, btn.dataset.telefone, btn.dataset.equipamento));
-    });
-}
 
 // ========== DASHBOARD v3 (INTERATIVA) ==========
 let db3Filtro = 'todas';
@@ -1479,4 +1119,277 @@ function renderFinanceiro() {
             });
         }
     }
+}
+
+// ========== RELATÓRIOS v2 (PROFISSIONAL + PDF) ==========
+let rel2Bar = null, rel2Donut = null, rel2Periodo = 'mes';
+function rel2Datas() {
+    const h = new Date();
+    const fim = new Date(h.getFullYear(), h.getMonth(), h.getDate(), 23, 59, 59);
+    let ini = null;
+    if (rel2Periodo === 'mes') ini = new Date(h.getFullYear(), h.getMonth(), 1);
+    else if (rel2Periodo === '30dias') ini = new Date(h.getTime() - 30 * 86400000);
+    else if (rel2Periodo === 'trimestre') ini = new Date(h.getTime() - 90 * 86400000);
+    else if (rel2Periodo === 'ano') ini = new Date(h.getFullYear(), 0, 1);
+    return { ini, fim };
+}
+function rel2Lista() {
+    const { ini, fim } = rel2Datas();
+    return ordens.filter(o => {
+        if (!o.data) return rel2Periodo === 'tudo';
+        const d = new Date(o.data + 'T12:00:00');
+        if (isNaN(d)) return rel2Periodo === 'tudo';
+        return (!ini || d >= ini) && d <= fim;
+    });
+}
+function renderRelatorios() {
+    document.getElementById('page-title').textContent = 'Relatórios';
+    const st = { pendente: ['Pendente', '#f59e0b', '⏳'], aguardando_aprovacao: ['Aguardando Aprovação', '#8b5cf6', '📝'], aguardando_pagamento: ['Aguardando Pagamento', '#06b6d4', '💳'], andamento: ['Em Andamento', '#3b82f6', '🔧'], concluido: ['Concluído', '#22c55e', '✅'], cancelado: ['Cancelado', '#ef4444', '❌'] };
+    const rotP = { mes: 'Este mês', '30dias': 'Últimos 30 dias', trimestre: 'Últimos 3 meses', ano: 'Este ano', tudo: 'Todo o histórico' };
+    const brl = v => 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+    const ini2 = n => (n || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const lista = rel2Lista();
+    const conc = lista.filter(o => o.status === 'concluido');
+    const fat = conc.reduce((a, o) => a + (o.valor || 0), 0);
+    const arec = lista.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((a, o) => a + (o.valor || 0), 0);
+    const tkt = conc.length ? fat / conc.length : 0;
+    const taxa = lista.length ? Math.round(conc.length / lista.length * 100) : 0;
+    const porEq = {};
+    lista.forEach(o => { const e = o.equipamento || 'Sem nome'; if (!porEq[e]) porEq[e] = { q: 0, v: 0 }; porEq[e].q++; porEq[e].v += o.valor || 0; });
+    const topEq = Object.entries(porEq).sort((a, b) => b[1].q - a[1].q).slice(0, 6);
+    const porCl = {};
+    lista.forEach(o => { if (!porCl[o.clienteId]) porCl[o.clienteId] = { q: 0, v: 0 }; porCl[o.clienteId].q++; porCl[o.clienteId].v += o.valor || 0; });
+    const topCl = Object.entries(porCl).map(([id, d]) => ({ c: clientes.find(c => c.id == id), ...d })).sort((a, b) => b.v - a.v).slice(0, 5);
+    const rank = topCl.length ? topCl.map((c, i) => `<div class="db2-os-row"><div class="rl2-medal${i < 3 ? ' m' + (i + 1) : ''}">${i + 1}º</div><div class="db2-avatar" style="background:rgba(79,140,255,.15);color:#4f8cff;">${ini2(c.c?.nome)}</div><div class="db2-os-info"><strong>${c.c?.nome || 'Cliente removido'}</strong><span>${c.q} OS no período</span></div><div class="db2-os-right"><strong class="fn2-valor${c.v > 0 ? ' ok' : ''}">${brl(c.v)}</strong></div></div>`).join('') : '<div class="db2-empty">🏅 Nenhuma OS no período para ranquear</div>';
+    const linha = os => { const c = clientes.find(c => c.id === os.clienteId); const s = st[os.status] || st.pendente; return `<div class="db2-os-row"><div class="db2-avatar" style="background:${s[1]}22;color:${s[1]};">${ini2(c?.nome)}</div><div class="db2-os-info"><strong>${c?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Sem nome'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${s[1]}18;color:${s[1]};">${s[2]} ${s[0]}</span><strong class="fn2-valor">${brl(os.valor)}</strong></div></div>`; };
+    const lst = lista.length ? [...lista].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 10).map(linha).join('') + (lista.length > 10 ? `<div class="db2-more">+ ${lista.length - 10} OS — veja todas no PDF</div>` : '') : '<div class="db2-empty">📋 Nenhuma OS no período selecionado</div>';
+    const pills = Object.keys(rotP).map(p => `<button class="rl2-pill${p === rel2Periodo ? ' active' : ''}" data-periodo="${p}">${rotP[p]}</button>`).join('');
+    const tem = lista.length > 0;
+    document.getElementById('content-area').innerHTML = `
+        <div class="rl2-root">
+            <div class="db2-header">
+                <div><h2>📈 Relatórios</h2><p>${rotP[rel2Periodo]} · ${lista.length} OS no período · taxa de conclusão ${taxa}%</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="rl-ir-listar">📋 Ver OS</button><button class="db2-btn primary" id="rl-gerar-pdf">📄 Gerar PDF do relatório</button></div>
+            </div>
+            <div class="rl2-pills">${pills}</div>
+            <div class="db2-kpis">
+                <div class="db2-kpi"><div class="db2-kpi-icon violet">📋</div><div><span class="db2-kpi-valor">${lista.length}</span><span class="db2-kpi-rotulo">OS no período</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">${brl(fat)}</span><span class="db2-kpi-rotulo">Faturado</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">${brl(arec)}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">🎫</div><div><span class="db2-kpi-valor">${brl(tkt)}</span><span class="db2-kpi-rotulo">Ticket médio</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">✅</div><div><span class="db2-kpi-valor">${taxa}%</span><span class="db2-kpi-rotulo">Taxa de conclusão</span></div></div>
+            </div>
+            <div class="rl2-grid">
+                <div class="db2-card"><div class="db2-card-head"><h3>🔫 Equipamentos mais atendidos</h3></div>${tem ? '<div class="rl2-canvas-wrap"><canvas id="rl2-equip"></canvas></div>' : '<div class="db2-empty">📊 Sem dados no período</div>'}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>🧭 OS por status</h3></div>${tem ? '<div class="rl2-canvas-wrap"><canvas id="rl2-status"></canvas></div>' : '<div class="db2-empty">📊 Sem dados no período</div>'}</div>
+            </div>
+            <div class="rl2-grid">
+                <div class="db2-card"><div class="db2-card-head"><h3>🏅 Ranking de clientes</h3></div>${rank}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>📋 Ordens do período</h3></div>${lst}</div>
+            </div>
+        </div>`;
+    document.querySelectorAll('.rl2-pill').forEach(p => p.addEventListener('click', () => { rel2Periodo = p.dataset.periodo; renderRelatorios(); }));
+    document.getElementById('rl-ir-listar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="listar-os"]')?.click());
+    document.getElementById('rl-gerar-pdf')?.addEventListener('click', gerarRelatorioPDF);
+    if (rel2Bar) { rel2Bar.destroy(); rel2Bar = null; }
+    if (rel2Donut) { rel2Donut.destroy(); rel2Donut = null; }
+    if (tem) {
+        const ce = document.getElementById('rl2-equip');
+        if (ce) rel2Bar = new Chart(ce, { type: 'bar', data: { labels: topEq.map(e => e[0]), datasets: [{ data: topEq.map(e => e[1].q), backgroundColor: 'rgba(79,140,255,.7)', hoverBackgroundColor: 'rgba(79,140,255,1)', borderRadius: 8, maxBarThickness: 28 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} OS — ${brl(topEq[c.dataIndex][1].v)}` } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, color: '#8b94a7' } }, y: { ticks: { color: '#8b94a7' } } } } });
+        const cs = document.getElementById('rl2-status');
+        const sd = Object.keys(st).filter(s => lista.some(o => o.status === s));
+        if (cs) rel2Donut = new Chart(cs, { type: 'doughnut', data: { labels: sd.map(s => st[s][0]), datasets: [{ data: sd.map(s => lista.filter(o => o.status === s).length), backgroundColor: sd.map(s => st[s][1]), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color: '#8b94a7', boxWidth: 12, padding: 12 } } } } });
+    }
+}
+function gerarRelatorioPDF() {
+    try {
+        const lista = rel2Lista();
+        if (!lista.length) { alert('Nenhuma OS no período selecionado.'); return; }
+        const doc = new jsPDF();
+        const brl = v => 'R$ ' + Number(v || 0).toFixed(2).replace('.', ',');
+        const df = s => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+        const tr = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 3) + '...' : s; };
+        const { ini, fim } = rel2Datas();
+        const stP = { pendente: 'Pendente', aguardando_aprovacao: 'Aguard. Aprovação', aguardando_pagamento: 'Aguard. Pagamento', andamento: 'Em Andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
+        const conc = lista.filter(o => o.status === 'concluido');
+        const fat = conc.reduce((a, o) => a + (o.valor || 0), 0);
+        const arec = lista.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((a, o) => a + (o.valor || 0), 0);
+        const tkt = conc.length ? fat / conc.length : 0;
+        const taxa = Math.round(conc.length / lista.length * 100);
+        doc.setFillColor(18, 24, 38); doc.rect(0, 0, 210, 32, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.text('WB AIRSOFT', 20, 14);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Relatório de Serviços - WB Sistema OS', 20, 24);
+        doc.setFontSize(8); doc.text('Emitido em: ' + new Date().toLocaleString('pt-BR'), 190, 24, { align: 'right' });
+        doc.setTextColor(110, 120, 140); doc.setFontSize(9);
+        doc.text(ini ? 'Período: ' + ini.toLocaleDateString('pt-BR') + ' a ' + fim.toLocaleDateString('pt-BR') : 'Período: Todo o histórico', 20, 42);
+        const card = (x, t, v) => {
+            doc.setDrawColor(229, 233, 242); doc.setFillColor(248, 249, 252); doc.rect(x, 50, 42, 24, 'FD');
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(110, 120, 140); doc.text(t, x + 21, 58, { align: 'center' });
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(28, 35, 51); doc.text(tr(v, 18), x + 21, 67, { align: 'center' });
+        };
+        card(15, 'OS no período', String(lista.length)); card(61, 'Faturado', brl(fat)); card(107, 'A receber', brl(arec)); card(153, 'Ticket médio', brl(tkt));
+        let y = 94;
+        const sec = t => { doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(28, 35, 51); doc.text(t, 20, y); y += 4; doc.setDrawColor(79, 140, 255); doc.setLineWidth(0.6); doc.line(20, y, 190, y); y += 8; };
+        const np = () => { if (y > 270) { doc.addPage(); y = 20; } };
+        sec('Equipamentos mais atendidos');
+        const pe = {}; lista.forEach(o => { const e = o.equipamento || 'Sem nome'; if (!pe[e]) pe[e] = { q: 0, v: 0 }; pe[e].q++; pe[e].v += o.valor || 0; });
+        const te = Object.entries(pe).sort((a, b) => b[1].q - a[1].q).slice(0, 5);
+        if (!te.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Nenhum registro no período.', 20, y); y += 8; }
+        te.forEach((it, i) => { np(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(28, 35, 51); doc.text((i + 1) + '. ' + tr(it[0], 42), 24, y); doc.setTextColor(110, 120, 140); doc.text(it[1].q + ' OS', 152, y, { align: 'right' }); doc.text(brl(it[1].v), 190, y, { align: 'right' }); y += 6; });
+        y += 6; np();
+        sec('Clientes com mais serviços');
+        const pc = {}; lista.forEach(o => { if (!pc[o.clienteId]) pc[o.clienteId] = { q: 0, v: 0 }; pc[o.clienteId].q++; pc[o.clienteId].v += o.valor || 0; });
+        const tc = Object.entries(pc).map(([id, d]) => ({ n: clientes.find(c => c.id == id)?.nome || 'Cliente removido', q: d.q, v: d.v })).sort((a, b) => b.v - a.v).slice(0, 5);
+               tc.forEach((it, i) => { np(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(28, 35, 51); doc.text((i + 1) + '. ' + tr(it.n, 42), 24, y); doc.setTextColor(110, 120, 140); doc.text(it.q + ' OS', 152, y, { align: 'right' }); doc.text(brl(it.v), 190, y, { align: 'right' }); y += 6; });
+        y += 6; np();
+        sec('Ordens de servico do periodo');
+        const desCab = () => { doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(28, 35, 51); doc.text('Data', 20, y); doc.text('Cliente', 42, y); doc.text('Equipamento', 90, y); doc.text('Status', 142, y); doc.text('Valor', 190, y, { align: 'right' }); doc.setDrawColor(229, 233, 242); doc.setLineWidth(0.2); doc.line(20, y + 2, 190, y + 2); y += 7; };
+        desCab();
+        [...lista].sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0)).forEach(os => {
+            if (y > 275) { doc.addPage(); y = 20; desCab(); }
+            const c = clientes.find(c => c.id === os.clienteId);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(28, 35, 51);
+            doc.text(df(os.data), 20, y);
+            doc.text(tr(c?.nome || '—', 22), 42, y);
+            doc.text(tr(os.equipamento || '—', 24), 90, y);
+            doc.text(tr(stP[os.status] || 'Pendente', 22), 142, y);
+            doc.text(brl(os.valor || 0), 190, y, { align: 'right' });
+            y += 6;
+        });
+        y += 8;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(28, 35, 51);
+        doc.text('Totais: ' + lista.length + ' OS · Faturado: ' + brl(fat) + ' · A receber: ' + brl(arec), 20, y);
+        salvarPDFComEscolha(doc.output('blob'), 'Relatorio_WB_Airsoft_' + (rel2Periodo === 'tudo' ? 'completo' : new Date().toISOString().slice(0, 10)) + '.pdf');
+    } catch (error) {
+        console.error('Erro no relatorio:', error);
+        alert('Erro ao gerar relatorio: ' + error.message);
+    }
+}
+// ========== RELATÓRIOS v3 (PREMIUM) ==========
+function renderRelatorios() {
+    document.getElementById('page-title').textContent = 'Relatórios';
+    const st = { pendente: ['Pendente', '#f59e0b', '⏳'], aguardando_aprovacao: ['Aguardando Aprovação', '#8b5cf6', '📝'], aguardando_pagamento: ['Aguardando Pagamento', '#06b6d4', '💳'], andamento: ['Em Andamento', '#3b82f6', '🔧'], concluido: ['Concluído', '#22c55e', '✅'], cancelado: ['Cancelado', '#ef4444', '❌'] };
+    const rotP = { mes: 'Este mês', '30dias': 'Últimos 30 dias', trimestre: 'Últimos 3 meses', ano: 'Este ano', tudo: 'Todo o histórico' };
+    const brl = v => 'R$ ' + (v || 0).toFixed(2).replace('.', ',');
+    const ini2 = n => (n || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const lista = rel2Lista();
+    const conc = lista.filter(o => o.status === 'concluido');
+    const fat = conc.reduce((a, o) => a + (o.valor || 0), 0);
+    const arec = lista.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((a, o) => a + (o.valor || 0), 0);
+    const tkt = conc.length ? fat / conc.length : 0;
+    const taxa = lista.length ? Math.round(conc.length / lista.length * 100) : 0;
+    const h = new Date();
+    const prevWin = { mes: [new Date(h.getFullYear(), h.getMonth() - 1, 1), new Date(h.getFullYear(), h.getMonth(), 0, 23, 59, 59)], '30dias': [new Date(h.getTime() - 60 * 86400000), new Date(h.getTime() - 30 * 86400000)], trimestre: [new Date(h.getTime() - 180 * 86400000), new Date(h.getTime() - 90 * 86400000)], ano: [new Date(h.getFullYear() - 1, 0, 1), new Date(h.getFullYear() - 1, 11, 31, 23, 59, 59)], tudo: [null, null] }[rel2Periodo];
+    const fatPrev = ordens.filter(o => { if (o.status !== 'concluido' || !o.data) return false; const d = new Date(o.data + 'T12:00:00'); return (!prevWin[0] || d >= prevWin[0]) && (!prevWin[1] || d <= prevWin[1]); }).reduce((a, o) => a + (o.valor || 0), 0);
+    const badge = rel2Periodo === 'tudo' || fatPrev === 0 ? '' : (pct => `<span class="rl2-badge ${pct >= 0 ? 'up' : 'down'}">${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct)}% vs ant.</span>`)(Math.round((fat - fatPrev) / fatPrev * 100));
+    const meta = parseFloat(localStorage.getItem('wb_meta_mensal')) || 0;
+    const fatMes = ordens.filter(o => { if (o.status !== 'concluido' || !o.data) return false; const d = new Date(o.data + 'T12:00:00'); return d.getMonth() === h.getMonth() && d.getFullYear() === h.getFullYear(); }).reduce((a, o) => a + (o.valor || 0), 0);
+    const pctMeta = meta > 0 ? Math.min(100, Math.round(fatMes / meta * 100)) : 0;
+    const porEq = {}; lista.forEach(o => { const e = o.equipamento || 'Sem nome'; if (!porEq[e]) porEq[e] = { q: 0, v: 0 }; porEq[e].q++; porEq[e].v += o.valor || 0; });
+    const topEq = Object.entries(porEq).sort((a, b) => b[1].q - a[1].q).slice(0, 6);
+    const porCl = {}; lista.forEach(o => { if (!porCl[o.clienteId]) porCl[o.clienteId] = { q: 0, v: 0 }; porCl[o.clienteId].q++; porCl[o.clienteId].v += o.valor || 0; });
+    const topCl = Object.entries(porCl).map(([id, d]) => ({ c: clientes.find(c => c.id == id), ...d })).sort((a, b) => b.v - a.v).slice(0, 5);
+    const rank = topCl.length ? topCl.map((c, i) => `<div class="db2-os-row"><div class="rl2-medal${i < 3 ? ' m' + (i + 1) : ''}">${i + 1}º</div><div class="db2-avatar" style="background:rgba(79,140,255,.15);color:#4f8cff;">${ini2(c.c?.nome)}</div><div class="db2-os-info"><strong>${c.c?.nome || 'Cliente removido'}</strong><span>${c.q} OS no período</span></div><div class="db2-os-right"><strong class="fn2-valor${c.v > 0 ? ' ok' : ''}">${brl(c.v)}</strong></div></div>`).join('') : '<div class="db2-empty">🏅 Nenhuma OS no período para ranquear</div>';
+    const linha = os => { const c = clientes.find(c => c.id === os.clienteId); const s = st[os.status] || st.pendente; return `<div class="db2-os-row"><div class="db2-avatar" style="background:${s[1]}22;color:${s[1]};">${ini2(c?.nome)}</div><div class="db2-os-info"><strong>${c.c?.nome || c?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Sem nome'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${s[1]}18;color:${s[1]};">${s[2]} ${s[0]}</span><strong class="fn2-valor">${brl(os.valor)}</strong></div></div>`; };
+    const lst = lista.length ? [...lista].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 10).map(linha).join('') + (lista.length > 10 ? `<div class="db2-more">+ ${lista.length - 10} OS — veja todas no PDF</div>` : '') : `<div class="db2-empty">📋 Nenhuma OS no período<br><button class="rl2-btn-demo" id="rl2-btn-demo">🎲 Carregar dados de demonstração</button></div>`;
+    const pills = Object.keys(rotP).map(p => `<button class="rl2-pill${p === rel2Periodo ? ' active' : ''}" data-periodo="${p}">${rotP[p]}</button>`).join('');
+    const tem = lista.length > 0;
+    const temDemo = clientes.some(c => c.demo) || ordens.some(o => o.demo);
+    const { ini } = rel2Datas();
+    document.getElementById('content-area').innerHTML = `
+        <div class="rl2-root">
+            <div class="db2-header">
+                <div><h2>📈 Relatórios</h2><p>${rotP[rel2Periodo]}${ini ? ' · ' + ini.toLocaleDateString('pt-BR') + ' até hoje' : ''}</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="rl2-csv">📊 Exportar CSV</button><button class="db2-btn ghost" id="rl2-seed">${temDemo ? '🧹 Remover demo' : '🎲 Dados demo'}</button><button class="db2-btn primary" id="rl-gerar-pdf">📄 Gerar PDF do relatório</button></div>
+            </div>
+            <div class="rl2-pills">${pills}</div>
+            <div class="db2-kpis">
+                <div class="db2-kpi"><div class="db2-kpi-icon violet">📋</div><div><span class="db2-kpi-valor">${lista.length}</span><span class="db2-kpi-rotulo">OS no período</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">${brl(fat)}</span><span class="db2-kpi-rotulo">Faturado</span>${badge}</div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">${brl(arec)}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">🎫</div><div><span class="db2-kpi-valor">${brl(tkt)}</span><span class="db2-kpi-rotulo">Ticket médio</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon green">🎯</div><div><span class="db2-kpi-valor">${pctMeta}%</span><span class="db2-kpi-rotulo">Meta do mês: ${brl(fatMes)} de ${brl(meta)}</span><div class="rl2-progress"><div class="rl2-progress-fill" style="width:${pctMeta}%"></div></div><input type="number" id="rl2-meta" value="${meta || ''}" placeholder="Definir meta R$"></div></div>
+            </div>
+            <div class="rl2-grid">
+                <div class="db2-card"><div class="db2-card-head"><h3>🔫 Equipamentos mais atendidos</h3></div>${tem ? '<div class="rl2-canvas-wrap"><canvas id="rl2-equip"></canvas></div>' : '<div class="db2-empty">📊 Sem dados no período</div>'}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>🧭 OS por status</h3></div>${tem ? '<div class="rl2-canvas-wrap"><canvas id="rl2-status"></canvas></div>' : '<div class="db2-empty">📊 Sem dados no período</div>'}</div>
+            </div>
+            <div class="rl2-grid">
+                <div class="db2-card"><div class="db2-card-head"><h3>🏅 Ranking de clientes</h3></div>${rank}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>📋 Ordens do período</h3></div>${lst}</div>
+            </div>
+        </div>`;
+    document.querySelectorAll('.rl2-pill').forEach(p => p.addEventListener('click', () => { rel2Periodo = p.dataset.periodo; renderRelatorios(); }));
+    document.getElementById('rl-gerar-pdf')?.addEventListener('click', gerarRelatorioPDF);
+    document.getElementById('rl2-csv')?.addEventListener('click', rel2CSV);
+    document.getElementById('rl2-seed')?.addEventListener('click', rel2SeedDemo);
+    document.getElementById('rl2-btn-demo')?.addEventListener('click', rel2SeedDemo);
+    document.getElementById('rl2-meta')?.addEventListener('change', e => { localStorage.setItem('wb_meta_mensal', e.target.value || '0'); renderRelatorios(); });
+    if (rel2Bar) { rel2Bar.destroy(); rel2Bar = null; }
+    if (rel2Donut) { rel2Donut.destroy(); rel2Donut = null; }
+    if (tem) {
+        const ce = document.getElementById('rl2-equip');
+        if (ce) rel2Bar = new Chart(ce, { type: 'bar', data: { labels: topEq.map(e => e[0]), datasets: [{ data: topEq.map(e => e[1].q), backgroundColor: 'rgba(79,140,255,.7)', hoverBackgroundColor: 'rgba(79,140,255,1)', borderRadius: 8, maxBarThickness: 28 }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} OS — ${brl(topEq[c.dataIndex][1].v)}` } } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1, color: '#8b94a7' } }, y: { ticks: { color: '#8b94a7' } } } } });
+        const cs = document.getElementById('rl2-status');
+        const sd = Object.keys(st).filter(s => lista.some(o => o.status === s));
+        if (cs) rel2Donut = new Chart(cs, { type: 'doughnut', data: { labels: sd.map(s => st[s][0]), datasets: [{ data: sd.map(s => lista.filter(o => o.status === s).length), backgroundColor: sd.map(s => st[s][1]), borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color: '#8b94a7', boxWidth: 12, padding: 12 } } } } });
+    }
+}
+function rel2CSV() {
+    const lista = rel2Lista();
+    if (!lista.length) { alert('Nenhuma OS no período.'); return; }
+    let csv = '\uFEFFData;Cliente;Equipamento;Valor;Status\n';
+    [...lista].sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0)).forEach(os => {
+        const c = clientes.find(c => c.id === os.clienteId);
+        csv += `${os.data || ''};${c?.nome || 'N/A'};${os.equipamento || '-'};${(os.valor || 0).toFixed(2).replace('.', ',')};${os.status}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `relatorio_os_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    alert('✅ Relatório CSV exportado! Abre direto no Excel.');
+}
+function rel2SeedDemo() {
+    const temDemo = clientes.some(c => c.demo) || ordens.some(o => o.demo);
+    if (temDemo) {
+        if (!confirm('Remover TODOS os dados de demonstração?')) return;
+        clientes = clientes.filter(c => !c.demo);
+        ordens = ordens.filter(o => !o.demo);
+        salvarClientes();
+        salvarOrdens();
+        atualizarContador?.();
+        alert('🧹 Dados de demonstração removidos!');
+        renderRelatorios();
+        return;
+    }
+    if (!confirm('Adicionar dados de demonstração?\n\nSerão criados 8 clientes e 16 OS fictícias (marcadas como demo).\nRemova depois pelo mesmo botão.')) return;
+    const nomes = ['Carlos Mendes', 'Ana Paula Souza', 'Rafael Costa', 'Juliana Lima', 'Pedro Alves', 'Marina Duarte', 'Lucas Ferreira', 'Beatriz Nunes'];
+    const tels = ['(11) 98123-4567', '(11) 99674-2210', '(21) 98455-1199', '(31) 99123-8890', '(41) 99678-3345', '(11) 97766-1020', '(19) 99432-7788', '(85) 98900-4532'];
+    const equips = ['Pistola Glock 17', 'Fuzil Krytac Trident', 'GBB Tokyo Marui', 'Rifle Ares Amoeba', 'Pistola WE Hi-Capa', 'Fuzil Lancer Tactical', 'Sniper Novritsch SSG10'];
+    const descs = ['Troca de mola e revisão completa', 'Vazamento no cilindro', 'Upgrade de mola M150', 'Revisão de O-rings', 'Troca de motor', 'Ajuste de hop-up', 'Limpeza geral e lubrificação', 'Diagnóstico de disparo'];
+    const stts = ['concluido', 'concluido', 'concluido', 'pendente', 'andamento', 'aguardando_pagamento', 'concluido', 'aguardando_aprovacao', 'concluido', 'pendente', 'andamento', 'concluido', 'aguardando_pagamento', 'concluido', 'pendente', 'cancelado'];
+    const vals = [180, 250, 320, 150, 420, 290, 560, 210];
+    const hoje = new Date();
+    const novosClientes = [];
+    nomes.forEach((n, i) => novosClientes.push({ id: Date.now() + i, nome: n, telefone: tels[i], email: n.toLowerCase().replace(' ', '.') + '@email.com', demo: true }));
+    const novasOS = [];
+    for (let i = 0; i < 16; i++) {
+        const mesesAtras = Math.floor(Math.random() * 6);
+        const dia = 1 + Math.floor(Math.random() * 27);
+        const d = new Date(hoje.getFullYear(), hoje.getMonth() - mesesAtras, dia);
+        const dataISO = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const v = vals[Math.floor(Math.random() * vals.length)];
+        novasOS.push({ id: Date.now() + 100 + i, clienteId: novosClientes[i % 8].id, data: dataISO, equipamento: equips[i % 7], descricao: descs[i % 8], valor: v, total: v, status: stts[i], demo: true });
+    }
+    clientes.push(...novosClientes);
+    ordens.push(...novasOS);
+    salvarClientes();
+    salvarOrdens();
+    atualizarContador?.();
+    alert('🎲 Dados de demonstração criados!\n\n8 clientes e 16 OS espalhadas nos últimos 6 meses.');
+    rel2Periodo = 'tudo';
+    renderRelatorios();
 }
