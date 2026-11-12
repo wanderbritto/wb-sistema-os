@@ -8,24 +8,26 @@
 <meta name="theme-color" content="#0d1117">
 <title>WB OS — Recebimento</title>
 <style>
-*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
-body{background:#0d1117;color:#e8ecf4;font-family:-apple-system,'Segoe UI',sans-serif;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px);max-width:480px;margin:0 auto}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;overflow-x:hidden}
+body{background:#0d1117;color:#e8ecf4;font-family:-apple-system,'Segoe UI',sans-serif;min-height:100vh}
+main{width:100%;max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 28px)}
 header{text-align:center;margin-bottom:18px}
 header .logo{font-size:30px}
 header h1{font-size:18px;margin-top:4px}
 header p{font-size:13px;color:#8b94a7}
-.card{background:#161c28;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.card{background:#161c28;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:14px;width:100%}
 label{font-size:12.5px;font-weight:700;color:#8b94a7;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px}
-input,select,textarea{width:100%;background:#0d1117;border:1px solid #2a3140;border-radius:12px;padding:12px;font-size:16px;color:#e8ecf4;outline:none;font-family:inherit}
+input,select,textarea{width:100%;background:#0d1117;border:1px solid #2a3140;border-radius:12px;padding:12px;font-size:16px;color:#e8ecf4;outline:none;font-family:inherit;display:block}
 input:focus,select:focus,textarea:focus{border-color:#4f8cff}
 textarea{resize:vertical}
 .pills{display:flex;gap:8px}
-.pill{flex:1;padding:12px;border-radius:12px;border:1px solid #2a3140;background:#0d1117;color:#8b94a7;font-weight:600;font-size:14px}
+.pill{flex:1;padding:12px;border-radius:12px;border:1px solid #2a3140;background:#0d1117;color:#8b94a7;font-weight:600;font-size:14px;cursor:pointer}
 .pill.on{border-color:#4f8cff;color:#fff;background:rgba(79,140,255,.15)}
 #salvar,.acao{background:linear-gradient(135deg,#4f8cff,#3b6fe0);border:0;border-radius:14px;padding:16px;font-size:16px;font-weight:700;color:#fff;width:100%;cursor:pointer}
 .acao{margin-bottom:10px}
 .ghost{background:transparent;border:1px solid #2a3140;color:#8b94a7}
-.carga{font-size:13px;color:#8b94a7;text-align:center;min-height:18px;margin-bottom:8px}
+.carga{font-size:13px;color:#8b94a7;text-align:center;min-height:18px}
 .ok-ico{font-size:56px;text-align:center}
 h2{text-align:center;margin:6px 0}
 #ok-detalhe{color:#8b94a7;text-align:center;margin-bottom:18px;font-size:14px}
@@ -33,6 +35,8 @@ h2{text-align:center;margin:6px 0}
 .previas{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .previas img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #2a3140}
 #fotos{display:none}
+#novo-cliente{display:none}
+#tela-ok{display:none}
 </style>
 </head>
 <body>
@@ -41,7 +45,7 @@ h2{text-align:center;margin:6px 0}
     <div class="card">
         <div class="carga" id="cli-loading">⏳ Carregando clientes...</div>
         <div><label>Cliente</label><select id="cliente"></select></div>
-        <div id="novo-cliente" style="display:none">
+        <div id="novo-cliente">
             <div style="margin-bottom:10px"><label>Nome do novo cliente</label><input id="nc-nome" placeholder="Nome completo"></div>
             <div><label>WhatsApp (opcional)</label><input id="nc-tel" type="tel" inputmode="tel" placeholder="(11) 99999-9999"></div>
         </div>
@@ -49,7 +53,7 @@ h2{text-align:center;margin:6px 0}
         <div><label>Equipamento *</label><input id="equipamento" placeholder="Ex: Pistola Glock 17"></div>
         <div><label>Defeito relatado</label><textarea id="defeito" rows="2" placeholder="O que o cliente reclamou..."></textarea></div>
         <div><label>Observações</label><textarea id="obs" rows="2" placeholder="Acessórios, combinados..."></textarea></div>
-               <div>
+        <div>
             <label>Fotos do equipamento</label>
             <label class="btn-foto" for="fotos">📷 Tirar foto</label>
             <input type="file" id="fotos" accept="image/*" capture="environment" multiple>
@@ -65,7 +69,7 @@ h2{text-align:center;margin:6px 0}
         <button id="salvar">✅ Registrar OS</button>
     </div>
 </main>
-<main id="tela-ok" style="display:none">
+<main id="tela-ok">
     <header><div class="logo">🔫</div><h1>WB AIRSOFT</h1></header>
     <div class="card">
         <div class="ok-ico">✅</div>
