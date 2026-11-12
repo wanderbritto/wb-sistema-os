@@ -1082,3 +1082,158 @@ async function init() {
 document.getElementById('sidebar-header')?.addEventListener('click', abrirModalLogo);
 carregarLogo();
 init();
+
+// ========== DASHBOARD PROFISSIONAL v2 ==========
+async function renderDashboard() {
+    console.log('Renderizando Dashboard...');
+    await carregarAgendamentosSupabase();
+    document.getElementById('page-title').textContent = 'Dashboard';
+    const agendamentosPendentes = agendamentos.filter(a => a.status === 'pendente');
+    const revisoes = getRevisoesPendentes();
+    const totalRevisoes = revisoes.length;
+    const statusInfo = {
+        pendente: { rotulo: 'Pendente', cor: '#f59e0b', icone: '⏳' },
+        aguardando_aprovacao: { rotulo: 'Aguardando Aprovação', cor: '#8b5cf6', icone: '📝' },
+        aguardando_pagamento: { rotulo: 'Aguardando Pagamento', cor: '#06b6d4', icone: '💳' },
+        andamento: { rotulo: 'Em Andamento', cor: '#3b82f6', icone: '🔧' },
+        concluido: { rotulo: 'Concluído', cor: '#22c55e', icone: '✅' },
+        cancelado: { rotulo: 'Cancelado', cor: '#ef4444', icone: '❌' }
+    };
+    const contarStatus = {};
+    Object.keys(statusInfo).forEach(s => { contarStatus[s] = ordens.filter(o => o.status === s).length; });
+    const faturamentoConcluido = ordens.filter(o => o.status === 'concluido').reduce((acc, o) => acc + (o.valor || 0), 0);
+    const aReceber = ordens.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((acc, o) => acc + (o.valor || 0), 0);
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const iniciais = nome => (nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const ultimasOS = [...ordens].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 6);
+    const listaOS = ultimasOS.length ? ultimasOS.map(os => {
+        const cliente = clientes.find(c => c.id === os.clienteId);
+        const st = statusInfo[os.status] || statusInfo.pendente;
+        return `<div class="db2-os-row"><div class="db2-avatar" style="background:${st.cor}22;color:${st.cor};">${iniciais(cliente?.nome)}</div><div class="db2-os-info"><strong>${cliente?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Equipamento não informado'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${st.cor}18;color:${st.cor};">${st.icone} ${st.rotulo}</span><strong class="db2-os-valor">R$ ${(os.valor || 0).toFixed(2).replace('.', ',')}</strong></div></div>`;
+    }).join('') : '<div class="db2-empty">📋 Nenhuma OS ainda — crie a primeira em "Nova OS"</div>';
+    const blocoRevisoes = revisoes.length ? revisoes.slice(0, 3).map(r => `<div class="db2-item"><div class="db2-item-main"><strong>👤 ${r.clienteNome}</strong><span>🔫 ${r.equipamento} · próxima: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</span></div><button class="btn-enviar-lembrete db2-mini-btn" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Lembrete</button></div>`).join('') + (totalRevisoes > 3 ? `<div class="db2-more">+ ${totalRevisoes - 3} revisão(ões)</div>` : '') : '<div class="db2-empty">✅ Nenhuma revisão pendente</div>';
+    const blocoAgendamentos = agendamentosPendentes.length ? agendamentosPendentes.slice(0, 3).map(a => `<div class="db2-item"><div class="db2-item-main"><strong>📅 ${a.nome}</strong><span>${a.equipamento || 'Equipamento não informado'} · ${a.data} às ${a.horario}</span></div><div class="db2-item-actions"><button class="btn-criar-os-agendamento db2-mini-btn primary" data-id="${a.id}">➕ OS</button><button class="btn-ignorar-agendamento db2-mini-btn danger" data-id="${a.id}">🗑️</button></div></div>`).join('') + (agendamentosPendentes.length > 3 ? `<div class="db2-more">+ ${agendamentosPendentes.length - 3} agendamento(s)</div>` : '') : '<div class="db2-empty">📭 Nenhum agendamento novo</div>';
+    const contentArea = document.getElementById('content-area');
+    contentArea.innerHTML = `
+        <div class="db2-root">
+            <div class="db2-header">
+                <div><h2>👋 Olá, ${usuarioAtual?.nome || 'Usuário'}!</h2><p>${hoje.charAt(0).toUpperCase() + hoje.slice(1)}</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="atalho-clientes">👥 Clientes</button><button class="db2-btn primary" id="atalho-nova">➕ Nova OS</button></div>
+            </div>
+            <div class="db2-kpis">
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">👥</div><div><span class="db2-kpi-valor">${clientes.length}</span><span class="db2-kpi-rotulo">Clientes</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon violet">📋</div><div><span class="db2-kpi-valor">${ordens.length}</span><span class="db2-kpi-rotulo">Total de OS</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">R$ ${faturamentoConcluido.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">Faturado (concluídas)</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">R$ ${aReceber.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
+            </div>
+            <div class="db2-pipeline">
+                ${Object.keys(statusInfo).map(s => `<div class="db2-stage" style="--st:${statusInfo[s].cor};"><span class="db2-stage-count">${contarStatus[s]}</span><span class="db2-stage-rotulo">${statusInfo[s].rotulo}</span></div>`).join('')}
+            </div>
+            <div class="db2-grid-2">
+                <div class="db2-card"><div class="db2-card-head"><h3>📅 Novos Agendamentos</h3>${agendamentosPendentes.length ? '<button class="db2-link" id="btn-ver-agendamentos">Ver todas →</button>' : ''}</div>${blocoAgendamentos}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>🔧 Revisões Periódicas</h3></div>${blocoRevisoes}</div>
+            </div>
+            <div class="db2-card"><div class="db2-card-head"><h3>📋 Últimas Ordens de Serviço</h3><button class="db2-link" id="atalho-listar">Ver todas →</button></div><div class="db2-os-list">${listaOS}</div></div>
+        </div>
+    `;
+    document.getElementById('atalho-clientes')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="clientes"]')?.click());
+    document.getElementById('atalho-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
+    document.getElementById('atalho-listar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="listar-os"]')?.click());
+    document.getElementById('btn-ver-agendamentos')?.addEventListener('click', () => renderAgendamentos());
+    document.querySelectorAll('.btn-criar-os-agendamento').forEach(btn => {
+        btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); } });
+    });
+    document.querySelectorAll('.btn-ignorar-agendamento').forEach(btn => {
+        btn.addEventListener('click', async () => { if (confirm('Marcar como ignorado?')) { await excluirAgendamentoSupabase(parseInt(btn.dataset.id)); await renderDashboard(); } });
+    });
+    document.querySelectorAll('.btn-enviar-lembrete').forEach(btn => {
+        btn.addEventListener('click', () => enviarLembreteRevisaoWhatsApp(btn.dataset.cliente, btn.dataset.telefone, btn.dataset.equipamento));
+    });
+}
+
+// ========== DASHBOARD v3 (INTERATIVA) ==========
+let db3Filtro = 'todas';
+let db3Busca = '';
+
+async function renderDashboard() {
+    console.log('Renderizando Dashboard v3...');
+    await carregarAgendamentosSupabase();
+    document.getElementById('page-title').textContent = 'Dashboard';
+    db3Filtro = 'todas';
+    db3Busca = '';
+    const agendamentosPendentes = agendamentos.filter(a => a.status === 'pendente');
+    const revisoes = getRevisoesPendentes();
+    const statusInfo = {
+        pendente: { rotulo: 'Pendente', cor: '#f59e0b', icone: '⏳' },
+        aguardando_aprovacao: { rotulo: 'Aguardando Aprovação', cor: '#8b5cf6', icone: '📝' },
+        aguardando_pagamento: { rotulo: 'Aguardando Pagamento', cor: '#06b6d4', icone: '💳' },
+        andamento: { rotulo: 'Em Andamento', cor: '#3b82f6', icone: '🔧' },
+        concluido: { rotulo: 'Concluído', cor: '#22c55e', icone: '✅' },
+        cancelado: { rotulo: 'Cancelado', cor: '#ef4444', icone: '❌' }
+    };
+    const contarStatus = {};
+    Object.keys(statusInfo).forEach(s => { contarStatus[s] = ordens.filter(o => o.status === s).length; });
+    const faturamentoConcluido = ordens.filter(o => o.status === 'concluido').reduce((acc, o) => acc + (o.valor || 0), 0);
+    const aReceber = ordens.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento').reduce((acc, o) => acc + (o.valor || 0), 0);
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const iniciais = nome => (nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const aba = s => `<button class="db3-tab" data-filtro="${s}" style="--st:${statusInfo[s].cor};"><span>${statusInfo[s].icone} ${statusInfo[s].rotulo}</span><strong>${contarStatus[s]}</strong></button>`;
+    const acoesCentro = (agendamentosPendentes.length || revisoes.length) ? `
+        ${agendamentosPendentes.map(a => `<div class="db3-acao"><div class="db3-acao-info"><strong>📅 ${a.nome}</strong><span>agendou ${a.equipamento || 'equipamento'} · ${a.data} às ${a.horario}</span></div><div class="db3-acao-botoes"><button class="btn-criar-os-agendamento db3-mini primary" data-id="${a.id}">➕ Criar OS</button><button class="btn-ignorar-agendamento db3-mini danger" data-id="${a.id}">🗑️</button></div></div>`).join('')}
+        ${revisoes.slice(0, 3).map(r => `<div class="db3-acao"><div class="db3-acao-info"><strong>🔧 ${r.clienteNome}</strong><span>revisão de ${r.equipamento} · próxima: ${new Date(r.dataProximaRevisao).toLocaleDateString('pt-BR')}</span></div><button class="btn-enviar-lembrete db3-mini" data-cliente="${r.clienteNome}" data-telefone="${r.clienteTelefone}" data-equipamento="${r.equipamento}">💬 Lembrete</button></div>`).join('')}` : '';
+    const contentArea = document.getElementById('content-area');
+    contentArea.innerHTML = `
+        <div class="db2-root">
+            <div class="db2-header">
+                <div><h2>👋 Olá, ${usuarioAtual?.nome || 'Usuário'}!</h2><p>${hoje.charAt(0).toUpperCase() + hoje.slice(1)}</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="atalho-clientes">👥 Clientes</button><button class="db2-btn primary" id="atalho-nova">➕ Nova OS</button></div>
+            </div>
+            <div class="db2-kpis">
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">👥</div><div><span class="db2-kpi-valor">${clientes.length}</span><span class="db2-kpi-rotulo">Clientes</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon violet">📋</div><div><span class="db2-kpi-valor">${ordens.length}</span><span class="db2-kpi-rotulo">Total de OS</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">R$ ${faturamentoConcluido.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">Faturado</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">R$ ${aReceber.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
+            </div>
+            <div class="db3-tabs">
+                <button class="db3-tab active" data-filtro="todas" style="--st:#4f8cff;"><span>📋 Todas</span><strong>${ordens.length}</strong></button>
+                ${Object.keys(statusInfo).map(s => aba(s)).join('')}
+            </div>
+            <div class="db2-card">
+                <div class="db2-card-head"><h3>🔔 Ações Pendentes</h3></div>
+                ${acoesCentro || '<div class="db3-tudo-em-dia">✅ Tudo em dia — nenhum agendamento ou revisão pendente</div>'}
+            </div>
+            <div class="db2-card">
+                <div class="db2-card-head"><h3>📋 Ordens de Serviço</h3><input type="text" id="db3-busca" class="db3-busca" placeholder="🔍 Buscar cliente ou equipamento..."></div>
+                <div id="db3-lista"></div>
+            </div>
+        </div>
+    `;
+    const pintarLista = () => {
+        const termo = db3Busca.toLowerCase();
+        const filtradas = ordens.filter(o => (db3Filtro === 'todas' || o.status === db3Filtro) && (!termo || (clientes.find(c => c.id === o.clienteId)?.nome || '').toLowerCase().includes(termo) || (o.equipamento || '').toLowerCase().includes(termo))).sort((a, b) => (b.id || 0) - (a.id || 0));
+        document.getElementById('db3-lista').innerHTML = filtradas.length ? filtradas.map(os => {
+            const cliente = clientes.find(c => c.id === os.clienteId);
+            const st = statusInfo[os.status] || statusInfo.pendente;
+            return `<div class="db2-os-row db3-linha"><div class="db2-avatar" style="background:${st.cor}22;color:${st.cor};">${iniciais(cliente?.nome)}</div><div class="db2-os-info"><strong>${cliente?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Equipamento não informado'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${st.cor}18;color:${st.cor};">${st.icone} ${st.rotulo}</span><span class="db3-valor">R$ ${(os.valor || 0).toFixed(2).replace('.', ',')}</span></div><div class="db3-row-actions"><button class="db3-ico" title="Enviar WhatsApp" onclick="gerarPDF_OS(${os.id}, true)">💬</button><button class="db3-ico" title="Salvar PDF" onclick="gerarPDF_OS(${os.id}, false)">📄</button><button class="db3-ico del" title="Excluir" onclick="db3ExcluirOS(${os.id})">🗑️</button></div></div>`;
+        }).join('') : '<div class="db2-empty">🔍 Nenhuma OS encontrada com esse filtro</div>';
+    };
+    pintarLista();
+    document.querySelectorAll('.db3-tab').forEach(t => t.addEventListener('click', () => {
+        document.querySelectorAll('.db3-tab').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+        db3Filtro = t.dataset.filtro;
+        pintarLista();
+    }));
+    document.getElementById('db3-busca')?.addEventListener('input', e => { db3Busca = e.target.value; pintarLista(); });
+    document.getElementById('atalho-clientes')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="clientes"]')?.click());
+    document.getElementById('atalho-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
+    document.querySelectorAll('.btn-criar-os-agendamento').forEach(btn => btn.addEventListener('click', async () => { const id = parseInt(btn.dataset.id); const a = agendamentos.find(a => a.id === id); if (a) { criarOSdoAgendamento(a); await marcarAgendamentoComoLidoSupabase(id); } }));
+    document.querySelectorAll('.btn-ignorar-agendamento').forEach(btn => btn.addEventListener('click', async () => { if (confirm('Marcar como ignorado?')) { await excluirAgendamentoSupabase(parseInt(btn.dataset.id)); await renderDashboard(); } }));
+    document.querySelectorAll('.btn-enviar-lembrete').forEach(btn => btn.addEventListener('click', () => enviarLembreteRevisaoWhatsApp(btn.dataset.cliente, btn.dataset.telefone, btn.dataset.equipamento)));
+}
+
+function db3ExcluirOS(id) {
+    if (!confirm('Excluir esta OS?')) return;
+    const idx = ordens.findIndex(o => o.id === id);
+    if (idx !== -1) { ordens.splice(idx, 1); salvarOrdens(); atualizarContador(); renderDashboard(); }
+}

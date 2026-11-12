@@ -1,15 +1,16 @@
 {
   "name": "wb-sistema-os",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Sistema de Ordem de Serviço para Airsoft",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "dist": "electron-builder --win"
   },
   "devDependencies": {
     "electron": "^41.2.0",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.0.12"
   },
   "keywords": [],
   "author": "",
@@ -20,5 +21,37 @@
     "chart.js": "^4.5.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7"
+  },
+  "build": {
+    "appId": "br.com.wbairsoft.sistemaos",
+    "productName": "WB Sistema OS",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "renderer.js",
+      "index.html",
+      "agendamento.html",
+      "style.css"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WB Sistema OS"
+    }
   }
 }
