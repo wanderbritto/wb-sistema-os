@@ -29,6 +29,10 @@ textarea{resize:vertical}
 .ok-ico{font-size:56px;text-align:center}
 h2{text-align:center;margin:6px 0}
 #ok-detalhe{color:#8b94a7;text-align:center;margin-bottom:18px;font-size:14px}
+.btn-foto{display:block;text-align:center;border:1px dashed #4f8cff;color:#4f8cff;border-radius:12px;padding:14px;cursor:pointer;font-weight:700;text-transform:none;letter-spacing:0;font-size:15px;margin:0}
+.previas{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.previas img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #2a3140}
+#fotos{display:none}
 </style>
 </head>
 <body>
@@ -45,6 +49,12 @@ h2{text-align:center;margin:6px 0}
         <div><label>Equipamento *</label><input id="equipamento" placeholder="Ex: Pistola Glock 17"></div>
         <div><label>Defeito relatado</label><textarea id="defeito" rows="2" placeholder="O que o cliente reclamou..."></textarea></div>
         <div><label>Observações</label><textarea id="obs" rows="2" placeholder="Acessórios, combinados..."></textarea></div>
+               <div>
+            <label>Fotos do equipamento</label>
+            <label class="btn-foto" for="fotos">📷 Tirar foto</label>
+            <input type="file" id="fotos" accept="image/*" capture="environment" multiple>
+            <div class="previas" id="previas"></div>
+        </div>
         <div><label>Valor estimado (R$)</label><input type="number" id="valor" step="0.01" inputmode="decimal" placeholder="0,00"></div>
         <div><label>Situação</label>
             <div class="pills">
@@ -68,7 +78,7 @@ h2{text-align:center;margin:6px 0}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const sb = supabase.createClient('https://cmdbhxnlhwwfssodtxpl.supabase.co','sb_publishable_ejR2-145S05asosBAk5M0g_8Kvcz9Z4');
-let clientes = [], statusSel = 'pendente', ultimo = {};
+let clientes = [], statusSel = 'pendente', ultimo = {}, fotosArquivos = [];
 function dataISO(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 async function carregar(){
     const l=document.getElementById('cli-loading');
@@ -76,8 +86,22 @@ async function carregar(){
     if(error){l.textContent='⚠️ Erro ao carregar clientes — verifique a internet';return;}
     clientes=data||[];
     l.textContent='';
-    const sel=document.getElementById('cliente');
-    sel.innerHTML='<option value="">Selecione...</option>'+clientes.map(c=>'<option value="'+c.id+'">'+c.nome+(c.telefone?' · '+c.telefone:'')+'</option>').join('')+'<option value="__novo">➕ Cadastrar novo cliente</option>';
+    document.getElementById('cliente').innerHTML='<option value="">Selecione...</option>'+clientes.map(c=>'<option value="'+c.id+'">'+c.nome+(c.telefone?' · '+c.telefone:'')+'</option>').join('')+'<option value="__novo">➕ Cadastrar novo cliente</option>';
+}
+async function comprimir(file){
+    return new Promise((res,rej)=>{
+        const img=new Image();
+        img.onload=()=>{
+            const max=1280, k=Math.min(1,max/Math.max(img.width,img.height));
+            const w=Math.round(img.width*k), h=Math.round(img.height*k);
+            const c=document.createElement('canvas'); c.width=w; c.height=h;
+            c.getContext('2d').drawImage(img,0,0,w,h);
+            URL.revokeObjectURL(img.src);
+            c.toBlob(b=>b?res(b):rej(new Error('falha ao comprimir')),'image/jpeg',0.72);
+        };
+        img.onerror=()=>rej(new Error('imagem inválida'));
+        img.src=URL.createObjectURL(file);
+    });
 }
 document.getElementById('cliente').addEventListener('change',e=>{
     document.getElementById('novo-cliente').style.display=e.target.value==='__novo'?'block':'none';
@@ -86,6 +110,15 @@ document.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{
     document.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));
     p.classList.add('on');statusSel=p.dataset.s;
 }));
+document.getElementById('fotos').addEventListener('change',e=>{
+    [...e.target.files].forEach(f=>{
+        fotosArquivos.push(f);
+        const img=document.createElement('img');
+        img.src=URL.createObjectURL(f);
+        document.getElementById('previas').appendChild(img);
+    });
+    e.target.value='';
+});
 document.getElementById('salvar').addEventListener('click',async function(){
     let clienteId=document.getElementById('cliente').value;
     if(clienteId==='__novo'){
@@ -104,13 +137,26 @@ document.getElementById('salvar').addEventListener('click',async function(){
     if(!equip){alert('Informe o equipamento');return;}
     const v=parseFloat(document.getElementById('valor').value)||0;
     const id=Date.now();
-    const reg={id,cliente_id:Number(clienteId),data:dataISO(),equipamento:equip,descricao:document.getElementById('obs').value.trim(),defeito:document.getElementById('defeito').value.trim(),laudo:'',acessorios:'',pecas:[],servicos:[],desconto:0,valor:v,total:v,status:statusSel};
-    this.disabled=true;this.textContent='⏳ Enviando...';
+    this.disabled=true;
+    let urls=[], falhas=0;
+    for(let i=0;i<fotosArquivos.length;i++){
+        this.textContent='📷 Enviando foto '+(i+1)+' de '+fotosArquivos.length+'...';
+        try{
+            const blob=await comprimir(fotosArquivos[i]);
+            const caminho=id+'/'+(i+1)+'.jpg';
+            const {error:upErr}=await sb.storage.from('fotos-os').upload(caminho,blob,{contentType:'image/jpeg',upsert:true});
+            if(upErr) throw upErr;
+            urls.push(sb.storage.from('fotos-os').getPublicUrl(caminho).data.publicUrl);
+        }catch(e){ falhas++; console.error(e); }
+    }
+    this.textContent='⏳ Salvando OS...';
+    const reg={id,cliente_id:Number(clienteId),data:dataISO(),equipamento:equip,descricao:document.getElementById('obs').value.trim(),defeito:document.getElementById('defeito').value.trim(),laudo:'',acessorios:'',pecas:[],servicos:[],desconto:0,valor:v,total:v,status:statusSel,fotos:urls};
     const {error}=await sb.from('ordens').insert(reg);
     this.disabled=false;this.textContent='✅ Registrar OS';
     if(error){alert('Erro ao salvar OS: '+error.message);return;}
     ultimo.os=String(id).slice(-6);
-    document.getElementById('ok-detalhe').textContent='OS #'+ultimo.os+' · '+ultimo.nome+' · '+equip;
+    ultimo.falhas=falhas;
+    document.getElementById('ok-detalhe').textContent='OS #'+ultimo.os+' · '+ultimo.nome+' · '+equip+' · '+urls.length+' foto(s)'+(falhas?' ⚠️ '+falhas+' não enviada(s)':'');
     document.getElementById('tela-form').style.display='none';
     document.getElementById('tela-ok').style.display='block';
 });
@@ -124,6 +170,8 @@ document.getElementById('btn-outra').addEventListener('click',()=>{
     ['equipamento','defeito','obs','valor'].forEach(i=>document.getElementById(i).value='');
     document.getElementById('cliente').value='';
     document.getElementById('novo-cliente').style.display='none';
+    document.getElementById('previas').innerHTML='';
+    fotosArquivos=[];
     document.getElementById('tela-ok').style.display='none';
     document.getElementById('tela-form').style.display='block';
 });
