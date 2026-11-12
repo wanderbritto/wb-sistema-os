@@ -1739,3 +1739,89 @@ function gerarPDF_OS(osId,enviarWhatsApp=false){
         alert('Erro ao gerar PDF: '+error.message);
     }
 }
+// ========== NUVEM v1 — DADOS NO SUPABASE ==========
+let nuvemOk = false;
+function salvarClientesLocal() { localStorage.setItem('wb_os_clientes', JSON.stringify(clientes)); }
+function salvarOrdensLocal() { localStorage.setItem('wb_os_ordens', JSON.stringify(ordens)); }
+async function sincronizarNuvem() {
+    if (!nuvemOk) return;
+    try {
+        const cli = clientes.map(c => ({ id: c.id, nome: c.nome, telefone: c.telefone || '', email: c.email || '' }));
+        const ord = ordens.map(o => ({ id: o.id, cliente_id: o.clienteId, data: o.data || null, equipamento: o.equipamento || '', descricao: o.descricao || '', defeito: o.defeito || '', laudo: o.laudo || '', acessorios: o.acessorios || '', pecas: o.pecas || [], servicos: o.servicos || [], desconto: o.desconto || 0, valor: o.valor || 0, total: o.total || o.valor || 0, status: o.status || 'pendente' }));
+        const r1 = await supabase.from('clientes').upsert(cli);
+        const r2 = await supabase.from('ordens').upsert(ord);
+        if (r1.error) throw r1.error;
+        if (r2.error) throw r2.error;
+        const [rc, ro] = await Promise.all([supabase.from('clientes').select('id'), supabase.from('ordens').select('id')]);
+        const idsC = new Set(cli.map(x => String(x.id)));
+        const idsO = new Set(ord.map(x => String(x.id)));
+        const delC = (rc.data || []).filter(x => !idsC.has(String(x.id))).map(x => x.id);
+        const delO = (ro.data || []).filter(x => !idsO.has(String(x.id))).map(x => x.id);
+        if (delC.length) await supabase.from('clientes').delete().in('id', delC);
+        if (delO.length) await supabase.from('ordens').delete().in('id', delO);
+        console.log('☁️ Nuvem sincronizada:', cli.length, 'clientes,', ord.length, 'OS');
+    } catch (e) {
+        console.warn('⚠️ Falha ao sincronizar (tudo seguro no PC):', e.message);
+    }
+}
+function salvarClientes() { salvarClientesLocal(); sincronizarNuvem(); }
+function salvarOrdens() { salvarOrdensLocal(); sincronizarNuvem(); }
+async function carregarDados() {
+    try {
+        const [rc, ro] = await Promise.all([supabase.from('clientes').select('*'), supabase.from('ordens').select('*')]);
+        if (rc.error) throw rc.error;
+        if (ro.error) throw ro.error;
+        const cliNuvem = rc.data || [], ordNuvem = ro.data || [];
+        if (cliNuvem.length === 0 && ordNuvem.length === 0) {
+            const cL = localStorage.getItem('wb_os_clientes');
+            const oL = localStorage.getItem('wb_os_ordens');
+            clientes = cL ? JSON.parse(cL) : [];
+            ordens = oL ? JSON.parse(oL) : [];
+            if (clientes.length === 0) {
+                clientes = [{ id: 1, nome: "João Silva", telefone: "(11) 99999-9999", email: "joao@email.com" }, { id: 2, nome: "Maria Santos", telefone: "(11) 88888-8888", email: "maria@email.com" }];
+            }
+            nuvemOk = true;
+            await sincronizarNuvem();
+            salvarClientesLocal(); salvarOrdensLocal();
+            console.log('🚀 Migração concluída: seus dados subiram para a nuvem!');
+            return;
+        }
+        clientes = cliNuvem.map(x => ({ ...x, id: Number(x.id) }));
+        ordens = ordNuvem.map(x => ({ ...x, id: Number(x.id), clienteId: x.cliente_id ? Number(x.cliente_id) : null, pecas: x.pecas || [], servicos: x.servicos || [] }));
+        nuvemOk = true;
+        salvarClientesLocal(); salvarOrdensLocal();
+        console.log('✅ Dados carregados da nuvem:', clientes.length, 'clientes,', ordens.length, 'OS');
+        return;
+    } catch (e) {
+        console.warn('⚠️ Nuvem indisponível — usando dados do PC:', e.message);
+        nuvemOk = false;
+    }
+    const cL = localStorage.getItem('wb_os_clientes');
+    const oL = localStorage.getItem('wb_os_ordens');
+    if (cL) clientes = JSON.parse(cL);
+    if (oL) ordens = JSON.parse(oL);
+    if (clientes.length === 0) {
+        clientes = [{ id: 1, nome: "João Silva", telefone: "(11) 99999-9999", email: "joao@email.com" }, { id: 2, nome: "Maria Santos", telefone: "(11) 88888-8888", email: "maria@email.com" }];
+        salvarClientesLocal();
+    }
+}
+async function init() {
+    console.log('Iniciando sistema (com nuvem)...');
+    configurarAutenticacao();
+    if (verificarSessao()) {
+        mostrarInterfaceUsuario();
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        await carregarDados();
+        await carregarAgendamentosSupabase();
+        atualizarContador();
+        carregarTema();
+        configurarBotoes();
+        carregarBackups();
+        iniciarBackupAutomatico();
+        setTimeout(() => renderDashboard(), 100);
+    } else {
+        document.getElementById('login-container').style.display = 'flex';
+        document.getElementById('app-container').style.display = 'none';
+    }
+}
