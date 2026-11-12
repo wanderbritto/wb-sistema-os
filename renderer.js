@@ -1850,3 +1850,225 @@ osEditar = function (id) {
             : `<p class="no2-dica">Nenhuma foto enviada pelo celular para esta OS.</p>`);
     side.insertBefore(bloco, side.firstChild);
 };
+// ========== PDF DA OS v4 — PROFISSIONAL + FOTOS ==========
+async function osUrlParaDataURL(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob();
+    return await new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(fr.result);
+        fr.onerror = rej;
+        fr.readAsDataURL(blob);
+    });
+}
+
+async function gerarPDF_OS(osId, enviarWhatsApp = false) {
+    const os = ordens.find(o => o.id === osId);
+    if (!os) { alert('OS não encontrada!'); return; }
+    const cliente = clientes.find(c => c.id === os.clienteId) || { nome: 'Cliente não identificado', telefone: '', email: '' };
+    try {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const W = 210, M = 14, CW = W - M * 2;
+        const AZUL = [79, 140, 255], ESCURO = [18, 24, 38], CINZA = [96, 104, 120], CLARO = [243, 246, 252], LINHA = [222, 228, 240];
+        const brl = v => 'R$ ' + (Number(v) || 0).toFixed(2).replace('.', ',');
+        const df = s => s ? new Date(s + 'T12:00:00').toLocaleDateString('pt-BR') : '—';
+        const tr = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 3) + '...' : s; };
+        const st = { pendente: 'Pendente', aguardando_aprovacao: 'Aguardando aprovação', aguardando_pagamento: 'Aguardando pagamento', andamento: 'Em andamento', concluido: 'Concluído', cancelado: 'Cancelado' };
+        const pecas = os.pecas || [], servicos = os.servicos || [];
+        const fotos = Array.isArray(os.fotos) ? os.fotos : [];
+        const subP = pecas.reduce((a, i) => a + (i.q || 0) * (i.v || 0), 0);
+        const subS = servicos.reduce((a, i) => a + (i.q || 0) * (i.v || 0), 0);
+        const desc = os.desconto || 0;
+        const total = (pecas.length || servicos.length) ? Math.max(0, subP + subS - desc) : (os.valor || 0);
+        const numOS = '#' + String(os.id).slice(-6);
+        let y = 0, rowY = 0;
+
+        function cabecalhoPrimeiraPagina() {
+            doc.setFillColor(...ESCURO); doc.rect(0, 0, W, 38, 'F');
+            doc.setFillColor(...AZUL); doc.rect(0, 38, W, 1.2, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(19); doc.text('WB AIRSOFT', M, 17);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(180, 190, 210);
+            doc.text('Manutenção especializada em equipamentos airsoft', M, 24);
+            doc.text('ORDEM DE SERVIÇO', M, 30);
+            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+            doc.text(numOS, W - M, 17, { align: 'right' });
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(180, 190, 210);
+            doc.text('Emitido em ' + new Date().toLocaleDateString('pt-BR'), W - M, 23, { align: 'right' });
+            doc.setFillColor(...AZUL); doc.roundedRect(W - M - 52, 26, 52, 7, 2, 2, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+            doc.text((st[os.status] || st.pendente).toUpperCase(), W - M - 26, 30.6, { align: 'center' });
+            y = 48;
+        }
+
+        function cabecalhoPaginaExtra() {
+            doc.setFillColor(...ESCURO); doc.rect(0, 0, W, 14, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+            doc.text('WB AIRSOFT', M, 9);
+            doc.setFont('helvetica', 'normal'); doc.text('Ordem de serviço ' + numOS, W - M, 9, { align: 'right' });
+            y = 24;
+        }
+
+        function garantir(h) {
+            if (y + h > 272) { doc.addPage(); cabecalhoPaginaExtra(); }
+        }
+
+        function secao(titulo) {
+            garantir(16);
+            doc.setFillColor(...CLARO); doc.rect(M, y, CW, 7, 'F');
+            doc.setFillColor(...AZUL); doc.rect(M, y, 1.4, 7, 'F');
+            doc.setTextColor(...ESCURO); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+            doc.text(titulo.toUpperCase(), M + 4, y + 4.8);
+            y += 11;
+        }
+
+        function campo(x, rotulo, valor, larg) {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+            doc.text(rotulo.toUpperCase(), x, y);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...ESCURO);
+            doc.text(doc.splitTextToSize(String(valor || '—'), larg), x, y + 5);
+        }
+
+        function bloco(rotulo, txt) {
+            if (!txt) return;
+            const linhas = doc.splitTextToSize(String(txt), CW - 2);
+            garantir(linhas.length * 4.8 + 12);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+            doc.text(rotulo.toUpperCase(), M, y);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...ESCURO);
+            doc.text(linhas, M, y + 5);
+            y += linhas.length * 4.8 + 9;
+        }
+
+        function tabela(titulo, itens, subtotal) {
+            if (!itens.length) return;
+            secao(titulo);
+            garantir(10);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+            doc.text('DESCRIÇÃO', M + 2, y);
+            doc.text('QTD', M + 104, y, { align: 'right' });
+            doc.text('UNIT.', M + 132, y, { align: 'right' });
+            doc.text('TOTAL', M + 160, y, { align: 'right' });
+            doc.text('GARANTIA', M + 164, y);
+            doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, y + 2, W - M, y + 2);
+            y += 7;
+            itens.forEach((i, idx) => {
+                garantir(8);
+                if (idx % 2 === 0) { doc.setFillColor(250, 251, 254); doc.rect(M, y - 4.5, CW, 7.5, 'F'); }
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...ESCURO);
+                doc.text(tr(i.d, 58), M + 2, y);
+                doc.text(String(i.q || 1), M + 104, y, { align: 'right' });
+                doc.text(brl(i.v), M + 132, y, { align: 'right' });
+                doc.setFont('helvetica', 'bold'); doc.text(brl((i.q || 1) * (i.v || 0)), M + 160, y, { align: 'right' });
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...CINZA);
+                doc.text(i.g ? tr(i.g, 22) : '—', M + 164, y);
+                y += 7.5;
+            });
+            doc.setDrawColor(...LINHA); doc.line(M, y - 3, W - M, y - 3);
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...ESCURO);
+            doc.text('Subtotal ' + titulo.toLowerCase() + ':', M + 132, y + 1, { align: 'right' });
+            doc.text(brl(subtotal), M + 160, y + 1, { align: 'right' });
+            y += 9;
+        }
+
+        // ===== CONTEÚDO =====
+        cabecalhoPrimeiraPagina();
+
+        secao('Cliente');
+        garantir(26);
+        campo(M, 'Nome', cliente.nome, 85);
+        campo(M + 100, 'Telefone', cliente.telefone || '—', 80);
+        y += 13;
+        campo(M, 'E-mail', cliente.email || '—', 85);
+        campo(M + 100, 'Data de entrada', df(os.data), 80);
+        y += 16;
+
+        secao('Equipamento e diagnóstico');
+        garantir(26);
+        campo(M, 'Equipamento', os.equipamento, 85);
+        campo(M + 100, 'Situação', st[os.status] || st.pendente, 80);
+        y += 16;
+        bloco('Defeito relatado', os.defeito);
+        bloco('Acessórios entregues', os.acessorios);
+        bloco('Laudo técnico', os.laudo);
+        bloco('Observações', os.descricao);
+        y += 3;
+
+        tabela('Peças e produtos', pecas, subP);
+        tabela('Serviços', servicos, subS);
+
+        garantir(34);
+        const xB = W - M - 72;
+        const linhaTot = (rot, val) => {
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...CINZA);
+            doc.text(rot, xB, y);
+            doc.setTextColor(...ESCURO); doc.text(val, W - M, y, { align: 'right' });
+            y += 6;
+        };
+        if (pecas.length) linhaTot('Peças e produtos', brl(subP));
+        if (servicos.length) linhaTot('Serviços', brl(subS));
+        if (desc > 0) linhaTot('Desconto', '- ' + brl(desc));
+        y += 2;
+        doc.setFillColor(...ESCURO); doc.roundedRect(xB - 4, y, W - M - xB + 4, 14, 2, 2, 'F');
+        doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text('TOTAL DA OS', xB, y + 8.6);
+        doc.setFontSize(14); doc.text(brl(total), W - M - 3, y + 9, { align: 'right' });
+        y += 22;
+
+        if (fotos.length) {
+            secao('Registro fotográfico');
+            const gap = 6, larg = (CW - gap) / 2, alt = larg * 0.75;
+            for (let i = 0; i < fotos.length; i++) {
+                const col = i % 2;
+                if (col === 0) { garantir(alt + 12); rowY = y; }
+                const x = M + col * (larg + gap);
+                try {
+                    const dataUrl = await osUrlParaDataURL(fotos[i]);
+                    doc.addImage(dataUrl, 'JPEG', x, rowY, larg, alt);
+                } catch (e) {
+                    doc.setFillColor(...CLARO); doc.rect(x, rowY, larg, alt, 'F');
+                    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...CINZA);
+                    doc.text('Foto indisponível', x + larg / 2, rowY + alt / 2, { align: 'center' });
+                }
+                doc.setDrawColor(...LINHA); doc.roundedRect(x, rowY, larg, alt, 2, 2);
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+                doc.text('Foto ' + (i + 1), x, rowY + alt + 4);
+                if (col === 1 || i === fotos.length - 1) y = rowY + alt + 9;
+            }
+            y += 2;
+        }
+
+        if (os.status === 'concluido') {
+            garantir(40);
+        } else {
+            garantir(40);
+        }
+        y += 10;
+        doc.setDrawColor(150, 150, 150); doc.setLineWidth(0.3);
+        doc.line(M + 8, y + 16, M + 80, y + 16);
+        doc.line(W - M - 80, y + 16, W - M - 8, y + 16);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...CINZA);
+        doc.text('Assinatura do cliente', M + 44, y + 21, { align: 'center' });
+        doc.text('Assinatura do técnico', W - M - 44, y + 21, { align: 'center' });
+        doc.setFontSize(7.5);
+        doc.text('Ao assinar, o cliente declara ciência do diagnóstico e dos valores apresentados.', W / 2, y + 28, { align: 'center' });
+
+        const totalPaginas = doc.getNumberOfPages();
+        for (let p = 1; p <= totalPaginas; p++) {
+            doc.setPage(p);
+            doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, 284, W - M, 284);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...CINZA);
+            doc.text('WB Airsoft · OS ' + numOS + ' · ' + tr(cliente.nome, 40), M, 289);
+            doc.text('Página ' + p + ' de ' + totalPaginas, W - M, 289, { align: 'right' });
+        }
+
+        const pdfBlob = doc.output('blob');
+        const nomeArquivo = 'OS_' + String(os.id).slice(-8) + '_' + String(cliente.nome).replace(/\s/g, '_') + '.pdf';
+        if (enviarWhatsApp) enviarPDF_WA(pdfBlob, nomeArquivo, cliente, os);
+        else salvarPDFComEscolha(pdfBlob, nomeArquivo);
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        alert('Erro ao gerar PDF: ' + error.message);
+    }
+}
