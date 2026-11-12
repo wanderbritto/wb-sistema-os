@@ -1825,3 +1825,12 @@ async function init() {
         document.getElementById('app-container').style.display = 'none';
     }
 }
+// ========== BOTÃO SYNC ==========
+document.getElementById('btn-sync')?.addEventListener('click', async function() {
+    this.textContent = '⏳';
+    await carregarDados();
+    await carregarAgendamentosSupabase();
+    atualizarContador();
+    document.querySelector('.nav-item.active')?.click();
+    this.textContent = '🔄';
+});
