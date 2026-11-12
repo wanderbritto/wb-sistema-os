@@ -1237,3 +1237,166 @@ function db3ExcluirOS(id) {
     const idx = ordens.findIndex(o => o.id === id);
     if (idx !== -1) { ordens.splice(idx, 1); salvarOrdens(); atualizarContador(); renderDashboard(); }
 }
+
+// ========== NOVA OS v2 (PROFISSIONAL) ==========
+function renderNovaOS() {
+    const statusInfo = {
+        pendente: { rotulo: 'Pendente', cor: '#f59e0b', icone: '⏳' },
+        aguardando_aprovacao: { rotulo: 'Aguardando Aprovação', cor: '#8b5cf6', icone: '📝' },
+        aguardando_pagamento: { rotulo: 'Aguardando Pagamento', cor: '#06b6d4', icone: '💳' },
+        andamento: { rotulo: 'Em Andamento', cor: '#3b82f6', icone: '🔧' },
+        concluido: { rotulo: 'Concluído', cor: '#22c55e', icone: '✅' },
+        cancelado: { rotulo: 'Cancelado', cor: '#ef4444', icone: '❌' }
+    };
+    const opcoesClientes = clientes.map(c => `<option value="${c.id}">${c.nome}${c.telefone ? ' · ' + c.telefone : ''}</option>`).join('');
+    const avisoSemClientes = clientes.length === 0 ? `<div class="no2-alert">👥 Você ainda não tem clientes cadastrados. <button class="db2-link" id="no2-ir-clientes">Cadastrar agora →</button></div>` : '';
+    document.getElementById('content-area').innerHTML = `
+        <div class="no2-root">
+            <div class="db2-header"><div><h2>📝 Nova Ordem de Serviço</h2><p>Preencha os dados do serviço — campos com * são obrigatórios</p></div></div>
+            ${avisoSemClientes}
+            <div class="no2-grid">
+                <div class="no2-form">
+                    <div class="no2-section"><div class="no2-section-title">👤 Cliente e data</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Cliente *</label><select id="clienteId"><option value="">Selecione um cliente</option>${opcoesClientes}</select></div>
+                            <div class="form-group"><label>Data *</label><input type="date" id="data" value="${getDataAtual()}"></div>
+                        </div>
+                    </div>
+                    <div class="no2-section"><div class="no2-section-title">🔫 Equipamento e serviço</div>
+                        <div class="form-group"><label>Equipamento *</label><input type="text" id="equipamento" placeholder="Ex: Pistola Glock 17 / Fuzil Krytac"></div>
+                        <div class="form-group"><label>Descrição do serviço</label><textarea id="descricao" rows="4" placeholder="Descreva o problema relatado, peças a trocar, serviço combinado..."></textarea></div>
+                    </div>
+                    <div class="no2-section"><div class="no2-section-title">💰 Valor e status</div>
+                        <div class="no2-row">
+                            <div class="form-group"><label>Valor (R$)</label><input type="number" id="valor" step="0.01" min="0" placeholder="0,00"></div>
+                            <div class="form-group"><label>Status inicial</label><input type="hidden" id="status" value="pendente"><div class="no2-pills">${Object.keys(statusInfo).map(s => `<button type="button" class="no2-pill${s === 'pendente' ? ' active' : ''}" data-status="${s}" style="--st:${statusInfo[s].cor};">${statusInfo[s].icone} ${statusInfo[s].rotulo}</button>`).join('')}</div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="no2-side">
+                    <div class="db2-card"><div class="no2-section-title">📄 Resumo da OS</div>
+                        <div class="no2-prev-linha"><span>Cliente</span><strong id="no2-p-cliente">—</strong></div>
+                        <div class="no2-prev-linha"><span>Equipamento</span><strong id="no2-p-equip">—</strong></div>
+                        <div class="no2-prev-linha"><span>Data</span><strong id="no2-p-data">—</strong></div>
+                        <div class="no2-prev-linha"><span>Status</span><strong id="no2-p-status">⏳ Pendente</strong></div>
+                        <div class="no2-prev-total"><span>Valor</span><strong id="no2-p-valor">R$ 0,00</strong></div>
+                    </div>
+                    <div class="db2-card"><div class="no2-section-title">💡 Dica</div><p class="no2-dica">A descrição vai para o PDF enviado por WhatsApp — registre ali o problema relatado e o combinado com o cliente.</p></div>
+                    <button id="btn-salvar-os" class="no2-salvar">💾 Salvar Ordem de Serviço</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const atualizarPreview = () => {
+        const cliente = clientes.find(c => c.id == document.getElementById('clienteId').value);
+        const st = statusInfo[document.getElementById('status').value] || statusInfo.pendente;
+        document.getElementById('no2-p-cliente').textContent = cliente ? cliente.nome : '—';
+        document.getElementById('no2-p-equip').textContent = document.getElementById('equipamento').value || '—';
+        document.getElementById('no2-p-data').textContent = new Date(document.getElementById('data').value + 'T12:00:00').toLocaleDateString('pt-BR');
+        document.getElementById('no2-p-status').textContent = `${st.icone} ${st.rotulo}`;
+        document.getElementById('no2-p-valor').textContent = 'R$ ' + (parseFloat(document.getElementById('valor').value) || 0).toFixed(2).replace('.', ',');
+    };
+    ['clienteId', 'equipamento', 'data', 'valor'].forEach(id => document.getElementById(id).addEventListener('input', atualizarPreview));
+    document.querySelectorAll('.no2-pill').forEach(pill => pill.addEventListener('click', () => {
+        document.querySelectorAll('.no2-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        document.getElementById('status').value = pill.dataset.status;
+        atualizarPreview();
+    }));
+    document.getElementById('no2-ir-clientes')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="clientes"]')?.click());
+    document.getElementById('btn-salvar-os').addEventListener('click', () => {
+        const clienteId = document.getElementById('clienteId').value;
+        if (!clienteId) { alert('Selecione um cliente'); return; }
+        const equipamento = document.getElementById('equipamento').value.trim();
+        if (!equipamento) { alert('Informe o equipamento'); return; }
+        ordens.push({ id: Date.now(), clienteId: parseInt(clienteId), data: document.getElementById('data').value, equipamento, descricao: document.getElementById('descricao').value, valor: parseFloat(document.getElementById('valor').value) || 0, status: document.getElementById('status').value, total: parseFloat(document.getElementById('valor').value) || 0 });
+        salvarOrdens();
+        alert('✅ OS salva com sucesso!');
+        renderListarOS();
+    });
+}
+
+// ========== CLIENTES v2 (PROFISSIONAL) ==========
+let clBusca = '';
+let clEditId = null;
+
+function renderClientes() {
+    document.getElementById('page-title').textContent = 'Clientes';
+    clBusca = '';
+    const iniciais = nome => (nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const editando = clEditId ? clientes.find(c => c.id === clEditId) : null;
+    const contentArea = document.getElementById('content-area');
+    contentArea.innerHTML = `
+        <div class="cl2-root">
+            <div class="db2-header">
+                <div><h2>👥 Clientes</h2><p>${clientes.length} cliente(s) cadastrado(s) · ${ordens.length} OS no sistema</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="cl-ir-nova">➕ Nova OS</button></div>
+            </div>
+            <div class="cl2-grid">
+                <div class="db2-card">
+                    <div class="no2-section-title">${editando ? '✏️ Editando: ' + editando.nome : '➕ Novo cliente'}</div>
+                    <div class="form-group"><label>Nome *</label><input type="text" id="cl-nome" placeholder="Digite o nome" value="${editando ? editando.nome || '' : ''}"></div>
+                    <div class="form-group"><label>Telefone (WhatsApp)</label><input type="text" id="cl-telefone" placeholder="(99) 99999-9999" value="${editando ? editando.telefone || '' : ''}"></div>
+                    <div class="form-group"><label>Email</label><input type="email" id="cl-email" placeholder="cliente@email.com" value="${editando ? editando.email || '' : ''}"></div>
+                    <button id="cl-salvar" class="no2-salvar">${editando ? '💾 Salvar alterações' : '💾 Cadastrar Cliente'}</button>
+                    ${editando ? '<button id="cl-cancelar" class="db2-btn ghost" style="width:100%;margin-top:8px;">Cancelar edição</button>' : ''}
+                </div>
+                <div class="db2-card">
+                    <div class="db2-card-head"><h3>📇 Todos os clientes</h3><input type="text" id="cl-busca" class="db3-busca" placeholder="🔍 Buscar nome, telefone ou email..."></div>
+                    <div id="cl-lista"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    const pintar = () => {
+        const termo = clBusca.toLowerCase();
+        const filtrados = clientes.filter(c => !termo || (c.nome || '').toLowerCase().includes(termo) || (c.telefone || '').includes(termo) || (c.email || '').toLowerCase().includes(termo));
+        document.getElementById('cl-lista').innerHTML = filtrados.length ? filtrados.map(c => {
+            const totalOS = ordens.filter(o => o.clienteId === c.id).length;
+            const telLimpo = (c.telefone || '').replace(/\D/g, '');
+            return `<div class="db2-os-row"><div class="db2-avatar" style="background:rgba(79,140,255,.15);color:#4f8cff;">${iniciais(c.nome)}</div><div class="db2-os-info"><strong>${c.nome}</strong><span>${c.telefone ? '📱 ' + c.telefone : '📱 sem telefone'}${c.email ? ' · ✉️ ' + c.email : ''}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:rgba(79,140,255,.12);color:#4f8cff;">📋 ${totalOS} OS</span></div><div class="db3-row-actions">${telLimpo ? `<button class="db3-ico" title="WhatsApp" onclick="window.open('https://wa.me/55${telLimpo}','_blank')">💬</button>` : ''}<button class="db3-ico" title="Editar" onclick="clEditar(${c.id})">✏️</button><button class="db3-ico del" title="Excluir" onclick="clExcluir(${c.id})">🗑️</button></div></div>`;
+        }).join('') : '<div class="db2-empty">👥 Nenhum cliente encontrado — cadastre o primeiro no card ao lado</div>';
+    };
+    pintar();
+    document.getElementById('cl-busca').addEventListener('input', e => { clBusca = e.target.value; pintar(); });
+    const mascaraTelefone = v => {
+        v = v.replace(/\D/g, '').slice(0, 11);
+        if (v.length > 7) return `(${v.slice(0, 2)}) ${v.slice(2, v.length > 10 ? 7 : 6)}-${v.slice(v.length > 10 ? 7 : 6)}`;
+        if (v.length > 2) return `(${v.slice(0, 2)}) ${v.slice(2)}`;
+        if (v.length > 0) return `(${v}`;
+        return v;
+    };
+    document.getElementById('cl-telefone').addEventListener('input', e => { e.target.value = mascaraTelefone(e.target.value); });
+    document.getElementById('cl-salvar').addEventListener('click', () => {
+        const nome = document.getElementById('cl-nome').value.trim();
+        if (!nome) { alert('O nome é obrigatório!'); return; }
+        const dados = { nome, telefone: document.getElementById('cl-telefone').value.trim(), email: document.getElementById('cl-email').value.trim() };
+        if (clEditId) {
+            const c = clientes.find(c => c.id === clEditId);
+            if (c) Object.assign(c, dados);
+            clEditId = null;
+            alert('✅ Cliente atualizado!');
+        } else {
+            clientes.push({ id: Date.now(), ...dados });
+            alert('✅ Cliente cadastrado!');
+        }
+        salvarClientes();
+        renderClientes();
+    });
+    document.getElementById('cl-cancelar')?.addEventListener('click', () => { clEditId = null; renderClientes(); });
+    document.getElementById('cl-ir-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
+}
+
+function clEditar(id) { clEditId = id; renderClientes(); document.getElementById('cl-nome')?.focus(); }
+
+function clExcluir(id) {
+    if (!confirm('Excluir este cliente? As OS dele ficarão sem cliente vinculado.')) return;
+    const index = clientes.findIndex(c => c.id === id);
+    if (index === -1) return;
+    clientes.splice(index, 1);
+    ordens.forEach(o => { if (o.clienteId === id) o.clienteId = null; });
+    salvarClientes();
+    salvarOrdens();
+    atualizarContador?.();
+    renderClientes();
+}

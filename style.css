@@ -2797,3 +2797,36 @@ body.light-theme .db3-mini{background:#e9edf5}
 body.light-theme .db3-ico{background:#e9edf5}
 .db3-ico.del{background:rgba(239,68,68,.12)}
 .db3-valor{font-size:13px;font-weight:700;color:var(--db2-text)}
+
+/* ===== NOVA OS v2 (PROFISSIONAL) ===== */
+.no2-root{--db2-card:rgba(255,255,255,.04);--db2-card-border:rgba(255,255,255,.08);--db2-text:#e8ecf4;--db2-muted:#8b94a7;--db2-accent:#4f8cff;display:flex;flex-direction:column;gap:16px;animation:db2-in .35s ease both}
+body.light-theme .no2-root{--db2-card:#fff;--db2-card-border:#e5e9f2;--db2-text:#1c2333;--db2-muted:#5f6b82}
+.no2-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.no2-grid{grid-template-columns:1fr}}
+.no2-form{display:flex;flex-direction:column;gap:14px}
+.no2-section{background:var(--db2-card);border:1px solid var(--db2-card-border);border-radius:16px;padding:18px}
+.no2-section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--db2-accent);margin-bottom:12px}
+.no2-row{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}
+@media(max-width:900px){.no2-row{grid-template-columns:1fr}}
+.no2-pills{display:flex;flex-wrap:wrap;gap:6px}
+.no2-pill{--st:#8b94a7;background:transparent;border:1px solid var(--db2-card-border);border-radius:999px;padding:6px 11px;font-size:11.5px;font-weight:600;color:var(--db2-muted);cursor:pointer;transition:.15s}
+.no2-pill:hover{border-color:var(--st);color:var(--st)}
+.no2-pill.active{background:var(--st);border-color:var(--st);color:#fff}
+.no2-alert{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--db2-text)}
+.no2-side{display:flex;flex-direction:column;gap:14px}
+.no2-prev-linha{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--db2-card-border);font-size:13px}
+.no2-prev-linha span{color:var(--db2-muted)}
+.no2-prev-linha strong{color:var(--db2-text);font-weight:600;text-align:right;max-width:60%}
+.no2-prev-total{display:flex;justify-content:space-between;align-items:center;padding-top:12px;font-size:15px}
+.no2-prev-total span{color:var(--db2-muted)}
+.no2-prev-total strong{color:#22c55e;font-size:20px;font-variant-numeric:tabular-nums}
+.no2-dica{margin:0;font-size:12.5px;line-height:1.55;color:var(--db2-muted)}
+.no2-salvar{width:100%;border:0;border-radius:12px;padding:15px;font-size:15px;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#4f8cff,#3b6fe0);color:#fff;box-shadow:0 6px 18px rgba(79,140,255,.35);transition:.2s}
+.no2-salvar:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(79,140,255,.45)}
+
+/* ===== CLIENTES v2 (PROFISSIONAL) ===== */
+.cl2-root{--db2-card:rgba(255,255,255,.04);--db2-card-border:rgba(255,255,255,.08);--db2-text:#e8ecf4;--db2-muted:#8b94a7;--db2-accent:#4f8cff;display:flex;flex-direction:column;gap:16px;animation:db2-in .35s ease both}
+body.light-theme .cl2-root{--db2-card:#fff;--db2-card-border:#e5e9f2;--db2-text:#1c2333;--db2-muted:#5f6b82}
+.cl2-grid{display:grid;grid-template-columns:1fr 1.8fr;gap:16px;align-items:start}
+@media(max-width:900px){.cl2-grid{grid-template-columns:1fr}}
+.db2-card .form-group{margin-bottom:12px}
