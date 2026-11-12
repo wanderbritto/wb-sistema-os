@@ -2885,3 +2885,6 @@ body.light-theme .os3-item input{background:#fff;border-color:#d9dfeb;color:#1c2
 .os3-add{background:rgba(79,140,255,.1);border:1px dashed rgba(79,140,255,.4);border-radius:8px;padding:8px 14px;color:#4f8cff;font-size:12.5px;font-weight:600;cursor:pointer;width:100%}
 .os3-add:hover{background:rgba(79,140,255,.18)}
 .os3-total{font-size:22px;font-weight:800;color:#22c55e;font-variant-numeric:tabular-nums}
+/* ===== FOTOS DA OS ===== */
+.os4-galeria{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.os4-galeria img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;border:1px solid rgba(255,255,255,.08);display:block}

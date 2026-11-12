@@ -1747,7 +1747,7 @@ async function sincronizarNuvem() {
     if (!nuvemOk) return;
     try {
         const cli = clientes.map(c => ({ id: c.id, nome: c.nome, telefone: c.telefone || '', email: c.email || '' }));
-        const ord = ordens.map(o => ({ id: o.id, cliente_id: o.clienteId, data: o.data || null, equipamento: o.equipamento || '', descricao: o.descricao || '', defeito: o.defeito || '', laudo: o.laudo || '', acessorios: o.acessorios || '', pecas: o.pecas || [], servicos: o.servicos || [], desconto: o.desconto || 0, valor: o.valor || 0, total: o.total || o.valor || 0, status: o.status || 'pendente' }));
+        const ord = ordens.map(o => ({ id: o.id, cliente_id: o.clienteId, data: o.data || null, equipamento: o.equipamento || '', descricao: o.descricao || '', defeito: o.defeito || '', laudo: o.laudo || '', acessorios: o.acessorios || '', pecas: o.pecas || [], servicos: o.servicos || [], desconto: o.desconto || 0, valor: o.valor || 0, total: o.total || o.valor || 0, status: o.status || 'pendente', fotos: o.fotos || [] }));
         const r1 = await supabase.from('clientes').upsert(cli);
         const r2 = await supabase.from('ordens').upsert(ord);
         if (r1.error) throw r1.error;
@@ -1834,3 +1834,19 @@ document.getElementById('btn-sync')?.addEventListener('click', async function() 
     document.querySelector('.nav-item.active')?.click();
     this.textContent = '🔄';
 });
+// ========== FOTOS DA OS — VISUALIZAÇÃO ==========
+const _osEditarBase = osEditar;
+osEditar = function (id) {
+    _osEditarBase(id);
+    const os = ordens.find(o => o.id === id);
+    const side = document.querySelector('#content-area .no2-side');
+    if (!os || !side) return;
+    const fotos = Array.isArray(os.fotos) ? os.fotos : [];
+    const bloco = document.createElement('div');
+    bloco.className = 'db2-card';
+    bloco.innerHTML = `<div class="no2-section-title">📷 Fotos do equipamento (${fotos.length})</div>` +
+        (fotos.length
+            ? `<div class="os4-galeria">${fotos.map(u => `<a href="${u}" target="_blank"><img src="${u}" loading="lazy" alt="Foto do equipamento"></a>`).join('')}</div>`
+            : `<p class="no2-dica">Nenhuma foto enviada pelo celular para esta OS.</p>`);
+    side.insertBefore(bloco, side.firstChild);
+};
