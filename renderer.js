@@ -1400,3 +1400,83 @@ function clExcluir(id) {
     atualizarContador?.();
     renderClientes();
 }
+
+// ========== FINANCEIRO v2 (PROFISSIONAL) ==========
+function renderFinanceiro() {
+    document.getElementById('page-title').textContent = 'Financeiro';
+    const statusInfo = {
+        pendente: { rotulo: 'Pendente', cor: '#f59e0b', icone: '⏳' },
+        aguardando_aprovacao: { rotulo: 'Aguardando Aprovação', cor: '#8b5cf6', icone: '📝' },
+        aguardando_pagamento: { rotulo: 'Aguardando Pagamento', cor: '#06b6d4', icone: '💳' },
+        andamento: { rotulo: 'Em Andamento', cor: '#3b82f6', icone: '🔧' },
+        concluido: { rotulo: 'Concluído', cor: '#22c55e', icone: '✅' },
+        cancelado: { rotulo: 'Cancelado', cor: '#ef4444', icone: '❌' }
+    };
+    const concluidas = ordens.filter(o => o.status === 'concluido');
+    const faturado = concluidas.reduce((acc, o) => acc + (o.valor || 0), 0);
+    const emAberto = ordens.filter(o => o.status === 'pendente' || o.status === 'aguardando_pagamento');
+    const aReceber = emAberto.reduce((acc, o) => acc + (o.valor || 0), 0);
+    const ticket = concluidas.length ? faturado / concluidas.length : 0;
+    const hojeData = new Date();
+    const mesesNomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const ultimos6 = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(hojeData.getFullYear(), hojeData.getMonth() - i, 1);
+        ultimos6.push({ ano: d.getFullYear(), mes: d.getMonth(), total: 0 });
+    }
+    concluidas.forEach(o => {
+        if (!o.data) return;
+        const d = new Date(o.data);
+        const item = ultimos6.find(m => m.ano === d.getFullYear() && m.mes === d.getMonth());
+        if (item) item.total += o.valor || 0;
+    });
+    const iniciais = nome => (nome || '?').trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+    const linhaOS = (os, verde) => {
+        const cliente = clientes.find(c => c.id === os.clienteId);
+        const st = statusInfo[os.status] || statusInfo.pendente;
+        return `<div class="db2-os-row"><div class="db2-avatar" style="background:${st.cor}22;color:${st.cor};">${iniciais(cliente?.nome)}</div><div class="db2-os-info"><strong>${cliente?.nome || 'Cliente removido'}</strong><span>${os.equipamento || 'Equipamento não informado'} · ${new Date(os.data || Date.now()).toLocaleDateString('pt-BR')}</span></div><div class="db2-os-right"><span class="db2-pill" style="background:${st.cor}18;color:${st.cor};">${st.icone} ${st.rotulo}</span><strong class="fn2-valor${verde ? ' ok' : ''}">R$ ${(os.valor || 0).toFixed(2).replace('.', ',')}</strong></div></div>`;
+    };
+    const listaAberto = emAberto.length ? [...emAberto].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 8).map(o => linhaOS(o, false)).join('') : '<div class="db2-empty">🎉 Nenhum valor em aberto — tudo recebido!</div>';
+    const listaRecebidos = concluidas.length ? [...concluidas].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 8).map(o => linhaOS(o, true)).join('') : '<div class="db2-empty">📋 Nenhum recebimento registrado ainda</div>';
+    const chartHTML = faturado > 0 ? '<div class="fn2-canvas-wrap"><canvas id="faturamentoChart"></canvas></div>' : '<div class="db2-empty">📊 Sem faturamento registrado — o gráfico nasce quando você concluir a primeira OS com valor</div>';
+    document.getElementById('content-area').innerHTML = `
+        <div class="fn2-root">
+            <div class="db2-header">
+                <div><h2>💰 Financeiro</h2><p>Visão geral dos valores do negócio · baseado nas OS cadastradas</p></div>
+                <div class="db2-header-actions"><button class="db2-btn ghost" id="fn-ir-nova">➕ Nova OS</button><button class="db2-btn primary" id="fn-ir-listar">📋 Ver OS</button></div>
+            </div>
+            <div class="db2-kpis">
+                <div class="db2-kpi"><div class="db2-kpi-icon green">💰</div><div><span class="db2-kpi-valor">R$ ${faturado.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">Faturado (concluídas)</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon amber">⏱️</div><div><span class="db2-kpi-valor">R$ ${aReceber.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">A receber</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon violet">🎫</div><div><span class="db2-kpi-valor">R$ ${ticket.toFixed(2).replace('.', ',')}</span><span class="db2-kpi-rotulo">Ticket médio</span></div></div>
+                <div class="db2-kpi"><div class="db2-kpi-icon blue">✅</div><div><span class="db2-kpi-valor">${concluidas.length}</span><span class="db2-kpi-rotulo">OS concluídas</span></div></div>
+            </div>
+            <div class="fn2-grid">
+                <div class="db2-card"><div class="db2-card-head"><h3>📈 Faturamento — últimos 6 meses</h3></div>${chartHTML}</div>
+                <div class="db2-card"><div class="db2-card-head"><h3>💳 Em aberto (R$ ${aReceber.toFixed(2).replace('.', ',')})</h3></div>${listaAberto}</div>
+            </div>
+            <div class="db2-card"><div class="db2-card-head"><h3>✅ Recebimentos recentes</h3></div>${listaRecebidos}</div>
+        </div>
+    `;
+    document.getElementById('fn-ir-nova')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="nova-os"]')?.click());
+    document.getElementById('fn-ir-listar')?.addEventListener('click', () => document.querySelector('.nav-item[data-page="listar-os"]')?.click());
+    if (faturado > 0) {
+        if (typeof faturamentoChart !== 'undefined' && faturamentoChart) faturamentoChart.destroy();
+        const ctx = document.getElementById('faturamentoChart');
+        if (ctx) {
+            faturamentoChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ultimos6.map(m => `${mesesNomes[m.mes]}/${String(m.ano).slice(2)}`),
+                    datasets: [{ data: ultimos6.map(m => m.total), backgroundColor: 'rgba(34,197,94,.65)', hoverBackgroundColor: 'rgba(34,197,94,.95)', borderRadius: 8, maxBarThickness: 46 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'R$ ' + Number(c.raw).toFixed(2).replace('.', ',') } } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => 'R$ ' + v } }, x: { grid: { display: false } } }
+                }
+            });
+        }
+    }
+}

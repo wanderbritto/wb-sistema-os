@@ -2830,3 +2830,12 @@ body.light-theme .cl2-root{--db2-card:#fff;--db2-card-border:#e5e9f2;--db2-text:
 .cl2-grid{display:grid;grid-template-columns:1fr 1.8fr;gap:16px;align-items:start}
 @media(max-width:900px){.cl2-grid{grid-template-columns:1fr}}
 .db2-card .form-group{margin-bottom:12px}
+
+/* ===== FINANCEIRO v2 (PROFISSIONAL) ===== */
+.fn2-root{--db2-card:rgba(255,255,255,.04);--db2-card-border:rgba(255,255,255,.08);--db2-text:#e8ecf4;--db2-muted:#8b94a7;--db2-accent:#4f8cff;display:flex;flex-direction:column;gap:16px;animation:db2-in .35s ease both}
+body.light-theme .fn2-root{--db2-card:#fff;--db2-card-border:#e5e9f2;--db2-text:#1c2333;--db2-muted:#5f6b82}
+.fn2-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.fn2-grid{grid-template-columns:1fr}}
+.fn2-canvas-wrap{height:280px;position:relative}
+.fn2-valor{font-size:13.5px;color:var(--db2-text)}
+.fn2-valor.ok{color:#22c55e}
